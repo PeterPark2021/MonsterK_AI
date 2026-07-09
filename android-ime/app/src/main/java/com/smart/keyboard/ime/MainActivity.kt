@@ -343,6 +343,11 @@ class MainActivity : AppCompatActivity() {
         }
         mainLayout.addView(testEditText)
 
+        // Request Microphone (RECORD_AUDIO) permission for Voice Input
+        if (androidx.core.content.ContextCompat.checkSelfPermission(this, android.Manifest.permission.RECORD_AUDIO) != android.content.pm.PackageManager.PERMISSION_GRANTED) {
+            androidx.core.app.ActivityCompat.requestPermissions(this, arrayOf(android.Manifest.permission.RECORD_AUDIO), 100)
+        }
+
         scrollView.addView(mainLayout)
         setContentView(scrollView)
     }

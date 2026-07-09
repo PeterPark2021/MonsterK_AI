@@ -33,6 +33,8 @@ class SmartKeyboardService : InputMethodService(), SharedPreferences.OnSharedPre
     private var isShiftActive = false
     private var isSymbolsActive = false
     private val koJamoBuffer = mutableListOf<String>()
+    private var isShowingPhrases = false
+    private var speechRecognizer: android.speech.SpeechRecognizer? = null
 
     override fun onCreate() {
         super.onCreate()
@@ -43,6 +45,8 @@ class SmartKeyboardService : InputMethodService(), SharedPreferences.OnSharedPre
     override fun onDestroy() {
         val prefs = getSharedPreferences("kboard_settings", Context.MODE_PRIVATE)
         prefs.unregisterOnSharedPreferenceChangeListener(this)
+        speechRecognizer?.destroy()
+        speechRecognizer = null
         super.onDestroy()
     }
 
@@ -65,6 +69,7 @@ class SmartKeyboardService : InputMethodService(), SharedPreferences.OnSharedPre
 
     // Layout Containers
     private lateinit var keysContainer: LinearLayout
+    private lateinit var spaceRowView: LinearLayout
     private lateinit var suggestionBtn1: Button
     private lateinit var suggestionBtn2: Button
     private lateinit var suggestionBtn3: Button
@@ -111,7 +116,8 @@ class SmartKeyboardService : InputMethodService(), SharedPreferences.OnSharedPre
         rootLayout.addView(keysContainer)
 
         // 3. Space Bar & System Actions Row
-        rootLayout.addView(createSpaceRow())
+        spaceRowView = createSpaceRow()
+        rootLayout.addView(spaceRowView)
 
         // Initial render
         buildKeysLayout()
@@ -123,6 +129,8 @@ class SmartKeyboardService : InputMethodService(), SharedPreferences.OnSharedPre
     private fun createToolbarRow(): LinearLayout {
         val density = resources.displayMetrics.density
         val paddingPx = (8 * density).toInt()
+        val isLandscape = resources.configuration.orientation == android.content.res.Configuration.ORIENTATION_LANDSCAPE
+        val barHeightDp = if (isLandscape) 32 else 44
 
         val toolbar = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
@@ -130,7 +138,7 @@ class SmartKeyboardService : InputMethodService(), SharedPreferences.OnSharedPre
             setBackgroundColor(android.graphics.Color.parseColor("#1e293b")) // Slate-800 suggestion bar
             layoutParams = LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT,
-                (44 * density).toInt()
+                (barHeightDp * density).toInt()
             )
             setPadding(paddingPx, 0, paddingPx, 0)
         }
@@ -157,7 +165,7 @@ class SmartKeyboardService : InputMethodService(), SharedPreferences.OnSharedPre
         suggestionBtn1 = Button(this).apply {
             layoutParams = chipParams
             setTextColor(android.graphics.Color.parseColor("#cbd5e1"))
-            textSize = 12f
+            textSize = if (isLandscape) 10f else 12f
             isAllCaps = false
             setPadding(0, 0, 0, 0)
             background = createGradientDrawable("#334155", 14f)
@@ -167,7 +175,7 @@ class SmartKeyboardService : InputMethodService(), SharedPreferences.OnSharedPre
         suggestionBtn2 = Button(this).apply {
             layoutParams = chipParams
             setTextColor(android.graphics.Color.parseColor("#cbd5e1"))
-            textSize = 12f
+            textSize = if (isLandscape) 10f else 12f
             isAllCaps = false
             setPadding(0, 0, 0, 0)
             background = createGradientDrawable("#334155", 14f)
@@ -177,7 +185,7 @@ class SmartKeyboardService : InputMethodService(), SharedPreferences.OnSharedPre
         suggestionBtn3 = Button(this).apply {
             layoutParams = chipParams
             setTextColor(android.graphics.Color.parseColor("#cbd5e1"))
-            textSize = 12f
+            textSize = if (isLandscape) 10f else 12f
             isAllCaps = false
             setPadding(0, 0, 0, 0)
             background = createGradientDrawable("#334155", 14f)
@@ -189,11 +197,13 @@ class SmartKeyboardService : InputMethodService(), SharedPreferences.OnSharedPre
         chipsContainer.addView(suggestionBtn3)
         toolbar.addView(chipsContainer)
 
+        val btnHeightDp = if (isLandscape) 24 else 28
+
         // Layout Indicator/Switcher on Toolbar
         layoutIndicatorBtn = Button(this).apply {
             layoutParams = LinearLayout.LayoutParams(
                 (90 * density).toInt(),
-                (28 * density).toInt()
+                (btnHeightDp * density).toInt()
             ).apply {
                 setMargins((4 * density).toInt(), 0, 0, 0)
             }
@@ -210,12 +220,41 @@ class SmartKeyboardService : InputMethodService(), SharedPreferences.OnSharedPre
         }
         toolbar.addView(layoutIndicatorBtn)
 
+        // Settings Button next to layout indicator to open the Control Center Activity
+        val settingsBtn = Button(this).apply {
+            layoutParams = LinearLayout.LayoutParams(
+                (32 * density).toInt(),
+                (btnHeightDp * density).toInt()
+            ).apply {
+                setMargins((4 * density).toInt(), 0, 0, 0)
+            }
+            text = "⚙️"
+            setTextColor(android.graphics.Color.WHITE)
+            textSize = 12f
+            background = createGradientDrawable("#475569", 6f)
+            setPadding(0, 0, 0, 0)
+            setOnClickListener {
+                triggerHapticFeedback()
+                try {
+                    val intent = android.content.Intent(this@SmartKeyboardService, MainActivity::class.java).apply {
+                        addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
+                    }
+                    startActivity(intent)
+                } catch (e: Exception) {
+                    android.widget.Toast.makeText(this@SmartKeyboardService, "관리 센터를 실행할 수 없습니다.", android.widget.Toast.LENGTH_SHORT).show()
+                }
+            }
+        }
+        toolbar.addView(settingsBtn)
+
         return toolbar
     }
 
     private fun createSpaceRow(): LinearLayout {
         val density = resources.displayMetrics.density
         val paddingPx = (6 * density).toInt()
+        val isLandscape = resources.configuration.orientation == android.content.res.Configuration.ORIENTATION_LANDSCAPE
+        val btnPaddingY = if (isLandscape) (4 * density).toInt() else (12 * density).toInt()
 
         val row = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
@@ -235,6 +274,7 @@ class SmartKeyboardService : InputMethodService(), SharedPreferences.OnSharedPre
             textSize = 13f
             isAllCaps = false
             background = createGradientDrawable("#475569", 8f) // Slate-600
+            setPadding(0, btnPaddingY, 0, btnPaddingY)
             layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1.2f).apply {
                 setMargins((3 * density).toInt(), 0, (3 * density).toInt(), 0)
             }
@@ -254,6 +294,7 @@ class SmartKeyboardService : InputMethodService(), SharedPreferences.OnSharedPre
             textSize = 12f
             isAllCaps = false
             background = createGradientDrawable("#334155", 8f) // Slate-700
+            setPadding(0, btnPaddingY, 0, btnPaddingY)
             layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1.2f).apply {
                 setMargins((3 * density).toInt(), 0, (3 * density).toInt(), 0)
             }
@@ -276,6 +317,7 @@ class SmartKeyboardService : InputMethodService(), SharedPreferences.OnSharedPre
             textSize = 13f
             isAllCaps = false
             background = createGradientDrawable("#1e293b", 8f) // Slate-800
+            setPadding(0, btnPaddingY, 0, btnPaddingY)
             layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 3.2f).apply {
                 setMargins((3 * density).toInt(), 0, (3 * density).toInt(), 0)
             }
@@ -295,6 +337,7 @@ class SmartKeyboardService : InputMethodService(), SharedPreferences.OnSharedPre
             textSize = 13f
             isAllCaps = false
             background = createGradientDrawable("#334155", 8f) // Slate-700
+            setPadding(0, btnPaddingY, 0, btnPaddingY)
             layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1.0f).apply {
                 setMargins((3 * density).toInt(), 0, (3 * density).toInt(), 0)
             }
@@ -313,6 +356,7 @@ class SmartKeyboardService : InputMethodService(), SharedPreferences.OnSharedPre
             textSize = 11f
             isAllCaps = false
             background = createGradientDrawable("#334155", 8f) // Slate-700
+            setPadding(0, btnPaddingY, 0, btnPaddingY)
             layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1.1f).apply {
                 setMargins((3 * density).toInt(), 0, (3 * density).toInt(), 0)
             }
@@ -333,6 +377,7 @@ class SmartKeyboardService : InputMethodService(), SharedPreferences.OnSharedPre
             textSize = 12f
             isAllCaps = false
             background = createGradientDrawable("#4f46e5", 8f) // Deep indigo
+            setPadding(0, btnPaddingY, 0, btnPaddingY)
             layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1.4f).apply {
                 setMargins((3 * density).toInt(), 0, (3 * density).toInt(), 0)
             }
@@ -351,22 +396,84 @@ class SmartKeyboardService : InputMethodService(), SharedPreferences.OnSharedPre
     }
 
     private fun startVoiceRecognition() {
-        try {
-            val intent = android.content.Intent(android.speech.RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
-                putExtra(android.speech.RecognizerIntent.EXTRA_LANGUAGE_MODEL, android.speech.RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
-                putExtra(android.speech.RecognizerIntent.EXTRA_LANGUAGE, "ko-KR")
-                putExtra(android.speech.RecognizerIntent.EXTRA_PROMPT, "말씀하세요...")
-                addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
+        if (androidx.core.content.ContextCompat.checkSelfPermission(this, android.Manifest.permission.RECORD_AUDIO) != android.content.pm.PackageManager.PERMISSION_GRANTED) {
+            android.widget.Toast.makeText(this, "마이크 권한이 비활성화되어 있습니다. 관리 센터 앱에서 권한을 허용해 주세요.", android.widget.Toast.LENGTH_LONG).show()
+            try {
+                val intent = android.content.Intent(this, MainActivity::class.java).apply {
+                    addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
+                }
+                startActivity(intent)
+            } catch (e: Exception) {}
+            return
+        }
+
+        val handler = android.os.Handler(android.os.Looper.getMainLooper())
+        handler.post {
+            try {
+                if (speechRecognizer != null) {
+                    speechRecognizer?.destroy()
+                    speechRecognizer = null
+                }
+                speechRecognizer = android.speech.SpeechRecognizer.createSpeechRecognizer(this).apply {
+                    setRecognitionListener(object : android.speech.RecognitionListener {
+                        override fun onReadyForSpeech(params: android.os.Bundle?) {
+                            android.widget.Toast.makeText(this@SmartKeyboardService, "🎤 음성 입력 준비 완료! 말씀하세요...", android.widget.Toast.LENGTH_SHORT).show()
+                        }
+                        override fun onBeginningOfSpeech() {}
+                        override fun onRmsChanged(rmsdB: Float) {}
+                        override fun onBufferReceived(buffer: ByteArray?) {}
+                        override fun onEndOfSpeech() {}
+                        override fun onError(error: Int) {
+                            val msg = when (error) {
+                                android.speech.SpeechRecognizer.ERROR_AUDIO -> "오디오 입력 에러"
+                                android.speech.SpeechRecognizer.ERROR_CLIENT -> "클라이언트 에러"
+                                android.speech.SpeechRecognizer.ERROR_INSUFFICIENT_PERMISSIONS -> "마이크 권한이 필요합니다."
+                                android.speech.SpeechRecognizer.ERROR_NETWORK -> "네트워크 에러"
+                                android.speech.SpeechRecognizer.ERROR_NETWORK_TIMEOUT -> "네트워크 시간 초과"
+                                android.speech.SpeechRecognizer.ERROR_NO_MATCH -> "일치하는 단어가 없습니다. 다시 말씀해 주세요."
+                                android.speech.SpeechRecognizer.ERROR_RECOGNIZER_BUSY -> "음성인식 서비스가 바쁩니다."
+                                android.speech.SpeechRecognizer.ERROR_SERVER -> "서버 연결에 실패했습니다."
+                                android.speech.SpeechRecognizer.ERROR_SPEECH_TIMEOUT -> "입력 시간 초과"
+                                else -> "음성인식 에러: $error"
+                            }
+                            android.widget.Toast.makeText(this@SmartKeyboardService, msg, android.widget.Toast.LENGTH_SHORT).show()
+                        }
+                        override fun onResults(results: android.os.Bundle?) {
+                            val matches = results?.getStringArrayList(android.speech.SpeechRecognizer.RESULTS_RECOGNITION)
+                            if (!matches.isNullOrEmpty()) {
+                                val transcript = matches[0]
+                                if (transcript.isNotEmpty()) {
+                                    commitActiveComposition()
+                                    currentInputConnection?.commitText(transcript, 1)
+                                    android.widget.Toast.makeText(this@SmartKeyboardService, "입력 완료: $transcript", android.widget.Toast.LENGTH_SHORT).show()
+                                }
+                            }
+                        }
+                        override fun onPartialResults(partialResults: android.os.Bundle?) {}
+                        override fun onEvent(eventType: Int, params: android.os.Bundle?) {}
+                    })
+                }
+
+                val intent = android.content.Intent(android.speech.RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
+                    putExtra(android.speech.RecognizerIntent.EXTRA_LANGUAGE_MODEL, android.speech.RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
+                    putExtra(android.speech.RecognizerIntent.EXTRA_LANGUAGE, "ko-KR")
+                }
+                speechRecognizer?.startListening(intent)
+            } catch (e: Exception) {
+                android.widget.Toast.makeText(this@SmartKeyboardService, "음성 인식 초기화 실패: ${e.message}", android.widget.Toast.LENGTH_SHORT).show()
             }
-            startActivity(intent)
-        } catch (e: Exception) {
-            android.widget.Toast.makeText(this, "음성 인식을 지원하지 않거나 마이크 권한이 필요합니다.", android.widget.Toast.LENGTH_SHORT).show()
         }
     }
 
     private fun buildKeysLayout() {
         keysContainer.removeAllViews()
         val density = resources.displayMetrics.density
+
+        // Hide or show the bottom spaceRowView depending on whether Geomjigeul (Korean, non-symbols) is active
+        val isGeomjigeulActive = activeKoreanLayout == "geomjigeul" && currentLanguage == "ko" && !isSymbolsActive
+        if (::spaceRowView.isInitialized) {
+            spaceRowView.visibility = if (isGeomjigeulActive) View.GONE else View.VISIBLE
+        }
 
         if (isSymbolsActive) {
             val row1 = listOf("1", "2", "3", "4", "5", "6", "7", "8", "9", "0")
@@ -419,10 +526,10 @@ class SmartKeyboardService : InputMethodService(), SharedPreferences.OnSharedPre
                         keysContainer.addView(createRow(listOf("획추가", "쌍자음", "⌫")))
                     }
                     "geomjigeul" -> {
-                        keysContainer.addView(createRow(listOf("ㄱ", "ㄴ", "ㄷ", "ㅗ", "ㅏ")))
-                        keysContainer.addView(createRow(listOf("ㄹ", "ㅁ", "ㅂ", "ㅡ", "ㅣ")))
-                        keysContainer.addView(createRow(listOf("ㅅ", "ㅇ", "ㅈ", "ㅜ", "ㅓ")))
-                        keysContainer.addView(createRow(listOf("획추가", "쌍자음", "⌫")))
+                        keysContainer.addView(createRow(listOf("앱실행", "ㄱ", "ㄴ", "ㄷ", "ㅗ", "ㅏ", "영")))
+                        keysContainer.addView(createRow(listOf("클립", "ㄹ", "ㅁ", "ㅂ", "ㅡ", "ㅣ", "123")))
+                        keysContainer.addView(createRow(listOf("상용구", "ㅅ", "ㅇ", "ㅈ", "ㅜ", "ㅓ", "⌫")))
+                        keysContainer.addView(createRow(listOf("배열", "획추가", ".,!?", "쌍자음", "스페이스", "Enter")))
                     }
                 }
             }
@@ -431,6 +538,14 @@ class SmartKeyboardService : InputMethodService(), SharedPreferences.OnSharedPre
 
     private fun createRow(keys: List<String>): LinearLayout {
         val density = resources.displayMetrics.density
+        val isLandscape = resources.configuration.orientation == android.content.res.Configuration.ORIENTATION_LANDSCAPE
+        val paddingDp = if (isLandscape) {
+            if (activeKoreanLayout == "geomjigeul") 4f else 6f
+        } else {
+            14f
+        }
+        val textMultiplier = if (isLandscape) 0.85f else 1.0f
+
         val row = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER
@@ -438,7 +553,7 @@ class SmartKeyboardService : InputMethodService(), SharedPreferences.OnSharedPre
                 ViewGroup.LayoutParams.MATCH_PARENT,
                 ViewGroup.LayoutParams.WRAP_CONTENT
             ).apply {
-                setMargins(0, (3 * density).toInt(), 0, (3 * density).toInt())
+                setMargins(0, (2 * density).toInt(), 0, (2 * density).toInt())
             }
         }
 
@@ -446,16 +561,24 @@ class SmartKeyboardService : InputMethodService(), SharedPreferences.OnSharedPre
             val keyButton = Button(this).apply {
                 text = if (isShiftActive && currentLanguage == "en" && key.length == 1) key.uppercase() else key
                 setTextColor(android.graphics.Color.WHITE)
-                textSize = if (key.length > 1) 13f else 18f
+                val baseTextSize = if (key.length > 1) 12f else 18f
+                textSize = baseTextSize * textMultiplier
                 isAllCaps = false
-                setPadding(0, (14 * density).toInt(), 0, (14 * density).toInt())
+                setPadding(0, (paddingDp * density).toInt(), 0, (paddingDp * density).toInt())
 
                 // Style based on function vs character
-                val isControl = key == "⇧" || key == "⌫" || key == "획추가" || key == "쌍자음"
+                val isControl = key == "⇧" || key == "⌫" || key == "획추가" || key == "쌍자음" || 
+                                key == "앱실행" || key == "클립" || key == "상용구" || key == "배열" || key == "영" || key == "123" || key == "Enter" || key == ".,!?"
                 val bgColor = if (isControl) "#475569" else "#1e293b" // slate-600 vs slate-800
                 background = createGradientDrawable(bgColor, 8f)
 
-                val weight = if (isControl) 1.4f else 1.0f
+                var weight = if (isControl) 1.4f else 1.0f
+                if (key == "스페이스") {
+                    weight = 2.0f
+                } else if (activeKoreanLayout == "geomjigeul") {
+                    weight = if (key == "스페이스") 2.0f else 1.0f
+                }
+
                 layoutParams = LinearLayout.LayoutParams(
                     0,
                     ViewGroup.LayoutParams.WRAP_CONTENT,
@@ -556,6 +679,48 @@ class SmartKeyboardService : InputMethodService(), SharedPreferences.OnSharedPre
                     ic.commitText(key, 1)
                     updateSuggestions()
                 }
+                "앱실행" -> {
+                    showAppSelector()
+                }
+                "클립" -> {
+                    showClipboardManager()
+                }
+                "상용구" -> {
+                    showCannedPhrases()
+                }
+                "배열" -> {
+                    cycleLayout()
+                    val label = getLayoutLabel()
+                    android.widget.Toast.makeText(this, "키보드 배열: $label", android.widget.Toast.LENGTH_SHORT).show()
+                }
+                "영" -> {
+                    commitActiveComposition()
+                    currentLanguage = "en"
+                    isSymbolsActive = false
+                    buildKeysLayout()
+                    updateSuggestions()
+                }
+                "123" -> {
+                    commitActiveComposition()
+                    isSymbolsActive = true
+                    buildKeysLayout()
+                }
+                "스페이스" -> {
+                    commitActiveComposition()
+                    ic.commitText(" ", 1)
+                    updateSuggestions()
+                }
+                "Enter" -> {
+                    commitActiveComposition()
+                    ic.sendKeyEvent(KeyEvent(KeyEvent.ACTION_DOWN, KeyEvent.KEYCODE_ENTER))
+                    ic.sendKeyEvent(KeyEvent(KeyEvent.ACTION_UP, KeyEvent.KEYCODE_ENTER))
+                    updateSuggestions()
+                }
+                ".,!?" -> {
+                    commitActiveComposition()
+                    ic.commitText(".", 1)
+                    updateSuggestions()
+                }
                 "⌫" -> {
                     if (currentLanguage == "ko" && koJamoBuffer.isNotEmpty()) {
                         koJamoBuffer.removeAt(koJamoBuffer.size - 1)
@@ -588,7 +753,7 @@ class SmartKeyboardService : InputMethodService(), SharedPreferences.OnSharedPre
                             "ㅁ" to "ㅂ", "ㅂ" to "ㅍ", "ㅍ" to "ㅃ", "ㅅ" to "ㅈ", "ㅈ" to "ㅊ",
                             "ㅊ" to "ㅉ", "ㅇ" to "ㅎ", "ㅏ" to "ㅑ", "ㅓ" to "ㅕ", "ㅗ" to "ㅛ",
                             "ㅜ" to "ㅠ", "ㅐ" to "ㅒ", "ㅔ" to "ㅖ", "ㅑ" to "ㅏ", "ㅕ" to "ㅓ",
-                            "ㅛ" to "ㅗ", "ㅠ" to "ㅜ"
+                            "요" to "ㅗ", "ㅠ" to "ㅜ"
                         )
                         if (strokeMap.containsKey(lastVal)) {
                             koJamoBuffer[lastIdx] = strokeMap[lastVal]!!
@@ -642,6 +807,372 @@ class SmartKeyboardService : InputMethodService(), SharedPreferences.OnSharedPre
                     // Regular keys
                     if (currentLanguage == "en") {
                         val charToCommit = if (isShiftActive) key.uppercase() else key.lowercase()
+                        ic.commitText(charToCommit, 1)
+                        if (isShiftActive) {
+                            isShiftActive = false
+                            buildKeysLayout()
+                        }
+                    } else {
+                        // Korean Jamos
+                        koJamoBuffer.add(key)
+                        val composed = when (activeKoreanLayout) {
+                            "cheonjiin" -> automaton.assembleJamos(resolveCheonjiinBuffer(koJamoBuffer))
+                            "geomjigeul" -> automaton.assembleJamos(resolveGeomjigeulBuffer(koJamoBuffer))
+                            else -> automaton.assembleJamos(koJamoBuffer)
+                        }
+                        ic.setComposingText(composed, 1)
+
+                        if (isShiftActive) {
+                            isShiftActive = false
+                            buildKeysLayout()
+                        }
+                    }
+                    updateSuggestions()
+                }
+            }
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+    }
+
+    private fun showAppSelector() {
+        val density = resources.displayMetrics.density
+        keysContainer.removeAllViews()
+
+        // 1. Title Bar
+        val titleBar = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+            setPadding((12 * density).toInt(), (6 * density).toInt(), (12 * density).toInt(), (6 * density).toInt())
+            setBackgroundColor(android.graphics.Color.parseColor("#1e293b"))
+        }
+
+        val titleText = android.widget.TextView(this).apply {
+            text = "키보드 앱 관리 센터 - 앱 실행"
+            setTextColor(android.graphics.Color.WHITE)
+            textSize = 14f
+            typeface = android.graphics.Typeface.DEFAULT_BOLD
+            layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
+        }
+        titleBar.addView(titleText)
+
+        val closeBtn = Button(this).apply {
+            text = "닫기 ✕"
+            setTextColor(android.graphics.Color.WHITE)
+            textSize = 12f
+            background = createGradientDrawable("#ef4444", 4f)
+            setPadding((8 * density).toInt(), 0, (8 * density).toInt(), 0)
+            layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, (30 * density).toInt())
+            setOnClickListener {
+                triggerHapticFeedback()
+                buildKeysLayout()
+            }
+        }
+        titleBar.addView(closeBtn)
+        keysContainer.addView(titleBar)
+
+        // 2. ScrollView for App List
+        val scrollView = android.widget.ScrollView(this).apply {
+            layoutParams = LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                (160 * density).toInt()
+            )
+        }
+
+        val listLayout = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding((8 * density).toInt(), (8 * density).toInt(), (8 * density).toInt(), (8 * density).toInt())
+        }
+
+        // Retrieve real installed launcher apps
+        try {
+            val pm = packageManager
+            val mainIntent = android.content.Intent(android.content.Intent.ACTION_MAIN, null).apply {
+                addCategory(android.content.Intent.CATEGORY_LAUNCHER)
+            }
+            val resolvedInfos = pm.queryIntentActivities(mainIntent, 0)
+            resolvedInfos.sortBy { it.loadLabel(pm).toString() }
+
+            for (info in resolvedInfos) {
+                val appName = info.loadLabel(pm).toString()
+                val pkgName = info.activityInfo.packageName
+
+                val itemBtn = Button(this).apply {
+                    text = appName
+                    setTextColor(android.graphics.Color.WHITE)
+                    textSize = 13f
+                    gravity = Gravity.LEFT or Gravity.CENTER_VERTICAL
+                    background = createGradientDrawable("#1e293b", 4f)
+                    setPadding((16 * density).toInt(), (10 * density).toInt(), (16 * density).toInt(), (10 * density).toInt())
+                    isAllCaps = false
+                    
+                    val lp = LinearLayout.LayoutParams(
+                        ViewGroup.LayoutParams.MATCH_PARENT,
+                        ViewGroup.LayoutParams.WRAP_CONTENT
+                    ).apply {
+                        setMargins(0, 0, 0, (6 * density).toInt())
+                    }
+                    layoutParams = lp
+
+                    setOnClickListener {
+                        triggerHapticFeedback()
+                        try {
+                            val launchIntent = pm.getLaunchIntentForPackage(pkgName)
+                            if (launchIntent != null) {
+                                launchIntent.addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
+                                startActivity(launchIntent)
+                                buildKeysLayout()
+                            } else {
+                                android.widget.Toast.makeText(this@SmartKeyboardService, "앱을 실행할 수 없습니다.", android.widget.Toast.LENGTH_SHORT).show()
+                            }
+                        } catch (e: Exception) {
+                            android.widget.Toast.makeText(this@SmartKeyboardService, "실행 실패: ${e.message}", android.widget.Toast.LENGTH_SHORT).show()
+                        }
+                    }
+                }
+                listLayout.addView(itemBtn)
+            }
+        } catch (e: Exception) {
+            val defaults = listOf(
+                "네이버" to "com.nhn.android.search",
+                "카카오톡" to "com.kakao.talk",
+                "YouTube" to "com.google.android.youtube",
+                "Chrome" to "com.android.chrome",
+                "설정" to "com.android.settings"
+            )
+            for ((name, pkg) in defaults) {
+                val itemBtn = Button(this).apply {
+                    text = name
+                    setTextColor(android.graphics.Color.WHITE)
+                    textSize = 13f
+                    gravity = Gravity.LEFT or Gravity.CENTER_VERTICAL
+                    background = createGradientDrawable("#1e293b", 4f)
+                    setPadding((16 * density).toInt(), (10 * density).toInt(), (16 * density).toInt(), (10 * density).toInt())
+                    isAllCaps = false
+                    
+                    val lp = LinearLayout.LayoutParams(
+                        ViewGroup.LayoutParams.MATCH_PARENT,
+                        ViewGroup.LayoutParams.WRAP_CONTENT
+                    ).apply {
+                        setMargins(0, 0, 0, (6 * density).toInt())
+                    }
+                    layoutParams = lp
+
+                    setOnClickListener {
+                        triggerHapticFeedback()
+                        try {
+                            val launchIntent = packageManager.getLaunchIntentForPackage(pkg)
+                            if (launchIntent != null) {
+                                launchIntent.addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
+                                startActivity(launchIntent)
+                                buildKeysLayout()
+                            } else {
+                                android.widget.Toast.makeText(this@SmartKeyboardService, "$name 앱이 설치되어 있지 않습니다.", android.widget.Toast.LENGTH_SHORT).show()
+                            }
+                        } catch (ex: Exception) {
+                            android.widget.Toast.makeText(this@SmartKeyboardService, "실행 실패: ${ex.message}", android.widget.Toast.LENGTH_SHORT).show()
+                        }
+                    }
+                }
+                listLayout.addView(itemBtn)
+            }
+        }
+
+        scrollView.addView(listLayout)
+        keysContainer.addView(scrollView)
+    }
+
+    private fun showClipboardManager() {
+        val density = resources.displayMetrics.density
+        keysContainer.removeAllViews()
+
+        // Title Bar
+        val titleBar = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+            setPadding((12 * density).toInt(), (6 * density).toInt(), (12 * density).toInt(), (6 * density).toInt())
+            setBackgroundColor(android.graphics.Color.parseColor("#1e293b"))
+        }
+
+        val titleText = android.widget.TextView(this).apply {
+            text = "클립보드 기록"
+            setTextColor(android.graphics.Color.WHITE)
+            textSize = 14f
+            typeface = android.graphics.Typeface.DEFAULT_BOLD
+            layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
+        }
+        titleBar.addView(titleText)
+
+        val closeBtn = Button(this).apply {
+            text = "닫기 ✕"
+            setTextColor(android.graphics.Color.WHITE)
+            textSize = 12f
+            background = createGradientDrawable("#ef4444", 4f)
+            setPadding((8 * density).toInt(), 0, (8 * density).toInt(), 0)
+            layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, (30 * density).toInt())
+            setOnClickListener {
+                triggerHapticFeedback()
+                buildKeysLayout()
+            }
+        }
+        titleBar.addView(closeBtn)
+        keysContainer.addView(titleBar)
+
+        val scrollView = android.widget.ScrollView(this).apply {
+            layoutParams = LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                (160 * density).toInt()
+            )
+        }
+
+        val listLayout = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding((8 * density).toInt(), (8 * density).toInt(), (8 * density).toInt(), (8 * density).toInt())
+        }
+
+        // Fetch clipboard history
+        val clipboard = getSystemService(Context.CLIPBOARD_SERVICE) as? android.content.ClipboardManager
+        val clips = mutableListOf<String>()
+
+        if (clipboard != null && clipboard.hasPrimaryClip()) {
+            val clipData = clipboard.primaryClip
+            if (clipData != null) {
+                for (i in 0 until clipData.itemCount) {
+                    val textVal = clipData.getItemAt(i).text?.toString()
+                    if (!textVal.isNullOrEmpty()) {
+                        clips.add(textVal)
+                    }
+                }
+            }
+        }
+
+        if (clips.isEmpty()) {
+            clips.add("[복사된 문장 예시] 안녕하세요, 스마트 키보드를 이용해 주셔서 감사합니다!")
+            clips.add("https://ai.studio/build")
+            clips.add("검지글 자판 사용법을 꼭 익혀 보세요.")
+        }
+
+        for (clip in clips) {
+            val itemBtn = Button(this).apply {
+                text = if (clip.length > 50) clip.substring(0, 47) + "..." else clip
+                setTextColor(android.graphics.Color.WHITE)
+                textSize = 13f
+                gravity = Gravity.LEFT or Gravity.CENTER_VERTICAL
+                background = createGradientDrawable("#1e293b", 4f)
+                setPadding((16 * density).toInt(), (10 * density).toInt(), (16 * density).toInt(), (10 * density).toInt())
+                isAllCaps = false
+                
+                val lp = LinearLayout.LayoutParams(
+                    ViewGroup.LayoutParams.MATCH_PARENT,
+                    ViewGroup.LayoutParams.WRAP_CONTENT
+                ).apply {
+                    setMargins(0, 0, 0, (6 * density).toInt())
+                }
+                layoutParams = lp
+
+                setOnClickListener {
+                    triggerHapticFeedback()
+                    commitActiveComposition()
+                    currentInputConnection?.commitText(clip, 1)
+                    buildKeysLayout()
+                }
+            }
+            listLayout.addView(itemBtn)
+        }
+
+        scrollView.addView(listLayout)
+        keysContainer.addView(scrollView)
+    }
+
+    private fun showCannedPhrases() {
+        val density = resources.displayMetrics.density
+        keysContainer.removeAllViews()
+
+        // Title Bar
+        val titleBar = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+            setPadding((12 * density).toInt(), (6 * density).toInt(), (12 * density).toInt(), (6 * density).toInt())
+            setBackgroundColor(android.graphics.Color.parseColor("#1e293b"))
+        }
+
+        val titleText = android.widget.TextView(this).apply {
+            text = "상용구 목록"
+            setTextColor(android.graphics.Color.WHITE)
+            textSize = 14f
+            typeface = android.graphics.Typeface.DEFAULT_BOLD
+            layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
+        }
+        titleBar.addView(titleText)
+
+        val closeBtn = Button(this).apply {
+            text = "닫기 ✕"
+            setTextColor(android.graphics.Color.WHITE)
+            textSize = 12f
+            background = createGradientDrawable("#ef4444", 4f)
+            setPadding((8 * density).toInt(), 0, (8 * density).toInt(), 0)
+            layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, (30 * density).toInt())
+            setOnClickListener {
+                triggerHapticFeedback()
+                buildKeysLayout()
+            }
+        }
+        titleBar.addView(closeBtn)
+        keysContainer.addView(titleBar)
+
+        val scrollView = android.widget.ScrollView(this).apply {
+            layoutParams = LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                (160 * density).toInt()
+            )
+        }
+
+        val listLayout = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding((8 * density).toInt(), (8 * density).toInt(), (8 * density).toInt(), (8 * density).toInt())
+        }
+
+        val phrases = listOf(
+            "감사합니다. 좋은 하루 보내세요!",
+            "지금 회의 중이라 이따가 연락드리겠습니다.",
+            "넵 알겠습니다! 바로 확인해 볼게요.",
+            "죄송합니다. 오늘 조금 늦을 것 같습니다.",
+            "혹시 시간 나실 때 연락 부탁드립니다.",
+            "도착하면 미리 말씀해 주세요.",
+            "오늘도 화이팅입니다!"
+        )
+
+        for (phrase in phrases) {
+            val itemBtn = Button(this).apply {
+                text = phrase
+                setTextColor(android.graphics.Color.WHITE)
+                textSize = 13f
+                gravity = Gravity.LEFT or Gravity.CENTER_VERTICAL
+                background = createGradientDrawable("#1e293b", 4f)
+                setPadding((16 * density).toInt(), (10 * density).toInt(), (16 * density).toInt(), (10 * density).toInt())
+                isAllCaps = false
+                
+                val lp = LinearLayout.LayoutParams(
+                    ViewGroup.LayoutParams.MATCH_PARENT,
+                    ViewGroup.LayoutParams.WRAP_CONTENT
+                ).apply {
+                    setMargins(0, 0, 0, (6 * density).toInt())
+                }
+                layoutParams = lp
+
+                setOnClickListener {
+                    triggerHapticFeedback()
+                    commitActiveComposition()
+                    currentInputConnection?.commitText(phrase, 1)
+                    buildKeysLayout()
+                }
+            }
+            listLayout.addView(itemBtn)
+        }
+
+        scrollView.addView(listLayout)
+        keysContainer.addView(scrollView)
+    }rToCommit = if (isShiftActive) key.uppercase() else key.lowercase()
                         ic.commitText(charToCommit, 1)
                         if (isShiftActive) {
                             isShiftActive = false
