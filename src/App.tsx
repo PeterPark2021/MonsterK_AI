@@ -14,7 +14,7 @@ const DEFAULT_SETTINGS: KeyboardSettings = {
   isKeyboardSelected: true,
   languages: { ko: true, en: true },
   activeKoreanLayout: 'cheonjiin',
-  keyboardHeight: 280,
+  keyboardHeight: 250,
   fontFamily: 'Inter',
   fontSize: 16,
   vibrateOnPress: true,
@@ -108,12 +108,22 @@ export default function App() {
 
   useEffect(() => {
     const updateScale = () => {
-      if (window.innerWidth < 420) {
-        // Safe padding calculation for phone viewports
-        const scaleFactor = Math.min(1, (window.innerWidth - 24) / 344);
-        setSimulatorScale(scaleFactor);
+      const isMobile = window.innerWidth < 1024;
+      
+      if (isMobile) {
+        // Safe padding calculation for phone viewports (width and height)
+        const scaleX = (window.innerWidth - 24) / 344;
+        const scaleY = (window.innerHeight - 100) / 672; // Leave space for header/tabs
+        const scaleFactor = Math.min(1, scaleX, scaleY);
+        setSimulatorScale(Math.max(0.4, scaleFactor));
       } else {
-        setSimulatorScale(1);
+        // On desktop, check if the viewport height is too small for the full 672px height
+        const scaleY = (window.innerHeight - 140) / 672;
+        if (scaleY < 1) {
+          setSimulatorScale(Math.max(0.5, scaleY));
+        } else {
+          setSimulatorScale(1);
+        }
       }
     };
     updateScale();

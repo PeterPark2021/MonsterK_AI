@@ -65,6 +65,22 @@ export default function VirtualKeyboard({
   const [showCorrectionToast, setShowCorrectionToast] = useState(false);
   const [showLayoutMenu, setShowLayoutMenu] = useState(false);
 
+  const [windowDimensions, setWindowDimensions] = useState({
+    width: typeof window !== 'undefined' ? window.innerWidth : 360,
+    height: typeof window !== 'undefined' ? window.innerHeight : 640
+  });
+
+  useEffect(() => {
+    const handleResize = () => {
+      setWindowDimensions({
+        width: window.innerWidth,
+        height: window.innerHeight
+      });
+    };
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
   const handleLayoutChange = (layout: KoreanLayout) => {
     setSettings(prev => ({
       ...prev,
@@ -610,6 +626,31 @@ export default function VirtualKeyboard({
     }
   };
 
+  const switchToVoiceTab = () => {
+    triggerVibration();
+    setActiveTab('voice');
+    setVoiceTranscript('');
+    setIsListening(true);
+
+    if (recognitionRef.current) {
+      try {
+        try { recognitionRef.current.stop(); } catch (e) {}
+        recognitionRef.current.start();
+      } catch (err) {
+        console.error("Speech recognition auto-start error:", err);
+      }
+    } else {
+      // Simulation mode
+      setVoiceTranscript('인식 중...');
+      setTimeout(() => {
+        setVoiceTranscript(currentLanguage === 'ko' ? '안녕하세요 맞춤법 자동 추천 키보드입니다' : 'hello this is a custom keyboard');
+      }, 1200);
+      setTimeout(() => {
+        setIsListening(false);
+      }, 2500);
+    }
+  };
+
   const commitVoiceInput = () => {
     if (voiceTranscript && voiceTranscript !== '인식 중...') {
       insertText(voiceTranscript);
@@ -737,11 +778,15 @@ export default function VirtualKeyboard({
     );
   };
 
+  const isLandscape = windowDimensions.width > windowDimensions.height;
+  const maxAllowedHeight = isLandscape ? 150 : 270;
+  const actualKeyboardHeight = Math.min(settings.keyboardHeight, maxAllowedHeight);
+
   return (
     <div 
       className="select-none flex flex-col justify-end w-full relative"
       style={{
-        height: `${settings.keyboardHeight}px`,
+        height: `${actualKeyboardHeight}px`,
         backgroundColor: theme.isDark ? '#121214' : '#F1F3F5',
         fontFamily: settings.fontFamily,
         borderTop: theme.isDark ? '1px solid #2D3139' : '1px solid #E2E8F0',
@@ -1410,7 +1455,7 @@ export default function VirtualKeyboard({
 
               {/* Microphone Key */}
               <button
-                onClick={() => { triggerVibration(); setActiveTab('voice'); }}
+                onClick={switchToVoiceTab}
                 className={`px-3.5 h-10 flex items-center justify-center shadow-sm active:scale-95 ${getKeyShapeClass()}`}
                 style={{ backgroundColor: theme.keyBgColor }}
               >

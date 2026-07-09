@@ -362,7 +362,7 @@ export default function CustomizerPanel({
                 <input
                   type="range"
                   min="200"
-                  max="380"
+                  max="270"
                   value={settings.keyboardHeight}
                   onChange={(e) => setSettings({ ...settings, keyboardHeight: parseInt(e.target.value) })}
                   className="w-full accent-sky-500 bg-slate-800 rounded-lg appearance-none h-1.5 cursor-pointer"
