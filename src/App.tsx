@@ -296,7 +296,7 @@ export default function App() {
           onClick={() => setMobileActiveView('settings')}
           className={`flex-1 py-2 text-xs font-bold rounded-xl flex items-center justify-center gap-2 transition-all ${mobileActiveView === 'settings' ? 'bg-indigo-600 text-white shadow-md' : 'text-slate-400 hover:text-slate-200'}`}
         >
-          <span>⚙️</span> 설정 & 학습 센터 (Settings)
+          <span>⚙️</span> 키보드 앱 관리 센터 (Settings)
         </button>
       </div>
 

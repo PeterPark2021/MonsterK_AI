@@ -161,7 +161,7 @@ export default function CustomizerPanel({
   const totalWords = Object.values(mlStats.wordFrequencies).reduce((sum, count) => sum + count, 0);
 
   return (
-    <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 shadow-xl flex flex-col h-[600px] overflow-hidden">
+    <div className="bg-slate-900 border border-slate-800 rounded-3xl p-4 lg:p-6 shadow-xl flex flex-col h-full min-h-[500px] lg:h-[600px] overflow-hidden">
       
       {/* Visual Header */}
       <div className="flex items-center justify-between border-b border-slate-800 pb-4 mb-4 shrink-0">

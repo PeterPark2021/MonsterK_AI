@@ -779,8 +779,24 @@ export default function VirtualKeyboard({
   };
 
   const isLandscape = windowDimensions.width > windowDimensions.height;
-  const maxAllowedHeight = isLandscape ? 150 : 270;
+  const maxAllowedHeight = isLandscape 
+    ? Math.min(160, Math.floor(windowDimensions.height * 0.4)) 
+    : Math.floor(windowDimensions.height * 0.45);
   const actualKeyboardHeight = Math.min(settings.keyboardHeight, maxAllowedHeight);
+
+  // Dynamic sizing factors to prevent cutoff in restricted/landscape environments
+  const isCompact = isLandscape || actualKeyboardHeight < 240;
+
+  const suggestionBarHeight = isCompact ? 32 : 40;
+  const topNumberRowHeight = isCompact ? 18 : 26;
+
+  // Key heights for different layouts
+  const qwertyKeyHeight = isCompact ? 28 : 40;
+  const cheonjiinKeyHeight = isCompact ? 24 : 34;
+  const naratgulKeyHeight = isCompact ? 24 : 36;
+  const geomjigeulKeyHeight = isCompact ? 24 : 34;
+
+  const bottomToolbarHeight = isCompact ? 28 : 40;
 
   return (
     <div 
@@ -793,6 +809,32 @@ export default function VirtualKeyboard({
       }}
       id="custom-virtual-keyboard"
     >
+      <style>{`
+        #custom-virtual-keyboard .top-number-row button {
+          height: ${topNumberRowHeight}px !important;
+          font-size: ${isCompact ? '10px' : '12px'} !important;
+        }
+        #custom-virtual-keyboard .qwerty-row button {
+          height: ${qwertyKeyHeight}px !important;
+          font-size: ${isCompact ? '11px' : '14px'} !important;
+        }
+        #custom-virtual-keyboard .cheonjiin-layout button {
+          height: ${cheonjiinKeyHeight}px !important;
+          font-size: ${isCompact ? '11px' : '14px'} !important;
+        }
+        #custom-virtual-keyboard .naratgul-layout button {
+          height: ${naratgulKeyHeight}px !important;
+          font-size: ${isCompact ? '11px' : '14px'} !important;
+        }
+        #custom-virtual-keyboard .geomjigeul-layout button {
+          height: ${geomjigeulKeyHeight}px !important;
+          font-size: ${isCompact ? '10px' : '13px'} !important;
+        }
+        #custom-virtual-keyboard .bottom-toolbar-row button {
+          height: ${bottomToolbarHeight}px !important;
+          font-size: ${isCompact ? '10px' : '12px'} !important;
+        }
+      `}</style>
       {/* 1. Keyboard Preview Popup (Visual feedback) */}
       <AnimatePresence>
         {activePopupKey && popupPosition && (
@@ -813,8 +855,9 @@ export default function VirtualKeyboard({
 
       {/* 2. Suggestion Bar (추천 바) */}
       <div 
-        className="flex items-center justify-between px-2 h-10 border-b overflow-x-auto text-xs font-medium"
+        className="flex items-center justify-between px-2 border-b overflow-x-auto text-xs font-medium"
         style={{
+          height: `${suggestionBarHeight}px`,
           backgroundColor: theme.isDark ? '#1E1E22' : '#E9ECEF',
           borderColor: theme.isDark ? '#2D3139' : '#DEE2E6',
         }}
@@ -868,13 +911,13 @@ export default function VirtualKeyboard({
       </div>
 
       {/* 3. Keyboard Main Tab Area */}
-      <div className="p-1.5 flex flex-col justify-between flex-1 overflow-hidden" style={{ color: theme.keyTextColor }}>
+      <div className={`flex flex-col justify-between flex-1 overflow-hidden ${isCompact ? 'p-0.5' : 'p-1.5'}`} style={{ color: theme.keyTextColor }}>
         
         {/* TAB 1: Standby Character Keyboard */}
         {activeTab === 'keyboard' && (
-          <div className="flex flex-col justify-between h-full gap-1">
+          <div className={`flex flex-col justify-between h-full ${isCompact ? 'gap-0.5' : 'gap-1'}`}>
             {/* Dedicated Top Number Row (always visible) */}
-            <div className="flex justify-between w-full gap-0.5 mb-0.5">
+            <div className="top-number-row flex justify-between w-full gap-0.5 mb-0.5">
               {['1', '2', '3', '4', '5', '6', '7', '8', '9', '0'].map((num) => (
                 <button
                   key={num}
@@ -895,7 +938,7 @@ export default function VirtualKeyboard({
             {(currentLanguage === 'en' || settings.activeKoreanLayout === 'qwerty') ? (
               <>
                 {/* QWERTY Row 1 */}
-                <div className="flex justify-center w-full gap-1">
+                <div className="qwerty-row flex justify-center w-full gap-1">
                   {getQwertyRow(1).map((char) => (
                     <button
                       key={char}
@@ -912,7 +955,7 @@ export default function VirtualKeyboard({
                 </div>
 
                 {/* QWERTY Row 2 */}
-                <div className="flex justify-center w-full gap-1 px-[3%]">
+                <div className="qwerty-row flex justify-center w-full gap-1 px-[3%]">
                   {getQwertyRow(2).map((char) => (
                     <button
                       key={char}
@@ -929,7 +972,7 @@ export default function VirtualKeyboard({
                 </div>
 
                 {/* QWERTY Row 3 */}
-                <div className="flex justify-center w-full gap-1">
+                <div className="qwerty-row flex justify-center w-full gap-1">
                   {/* Shift toggle */}
                   <button
                     onClick={() => { triggerVibration(); setIsShifted(!isShifted); }}
@@ -968,7 +1011,7 @@ export default function VirtualKeyboard({
               </>
             ) : settings.activeKoreanLayout === 'cheonjiin' ? (
               /* 3B. CHEONJIIN Layout Grid (천지인) */
-              <div className="grid grid-cols-3 gap-1 flex-1 max-h-[170px]">
+              <div className="cheonjiin-layout grid grid-cols-3 gap-1 flex-1">
                 {/* Row 1: Vowels */}
                 <button
                   onClick={() => { triggerVibration(); processCheonjiinVowelInput('ㅣ'); }}
@@ -1068,7 +1111,7 @@ export default function VirtualKeyboard({
               </div>
             ) : settings.activeKoreanLayout === 'naratgul' ? (
               /* 3C. NARATGUL Layout Grid (나랏글) */
-              <div className="grid grid-cols-5 gap-1 flex-1 max-h-[170px]">
+              <div className="naratgul-layout grid grid-cols-5 gap-1 flex-1">
                 {/* Consonants Row 1 */}
                 <button
                   onClick={() => handleNaratgulKey('ㄱ')}
@@ -1206,7 +1249,7 @@ export default function VirtualKeyboard({
               </div>
             ) : (
               /* 3E. GEOMJIGEUL Layout Grid (검지글) */
-              <div className="grid grid-cols-7 gap-1 flex-1 max-h-[175px] select-none touch-none">
+              <div className="geomjigeul-layout grid grid-cols-7 gap-1 flex-1 select-none touch-none">
                 {/* Row 1 of Geomjigeul */}
                 <button
                   onClick={() => { triggerVibration(); alert("앱실행 기능입니다."); }}
@@ -1412,7 +1455,7 @@ export default function VirtualKeyboard({
             )}
 
             {/* 3D. Common Bottom Toolbar Key Row */}
-            <div className="flex justify-between w-full gap-1">
+            <div className="bottom-toolbar-row flex justify-between w-full gap-1">
               {/* Special Tab Toggle !?☺ */}
               <button
                 onClick={() => { triggerVibration(); setActiveTab('emoji'); }}
@@ -1520,7 +1563,7 @@ export default function VirtualKeyboard({
             </div>
 
             {/* Emoji Grid list */}
-            <div className="grid grid-cols-7 gap-1 overflow-y-auto h-[100px] py-1 text-center text-lg content-start">
+            <div className="grid grid-cols-7 gap-1 overflow-y-auto flex-1 min-h-[40px] py-1 text-center text-lg content-start">
               {emojiCategory === 'faces' && ['😀', '😃', '😄', '😁', '😆', '😅', '😂', '🤣', '😊', '😇', '🙂', '🙃', '😉', '😌', '😍', '🥰', '😘', '😗', '😙', '😚', '😋', '😛', '😝', '😜', '🤪', '🤨', '🧐', '🤓'].map(em => (
                 <button key={em} onClick={() => insertText(em)} className="p-1 hover:bg-gray-500/10 rounded active:scale-90">{em}</button>
               ))}
