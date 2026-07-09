@@ -724,10 +724,40 @@ export default function VirtualKeyboard({
 
   const commitVoiceInput = () => {
     if (voiceTranscript && voiceTranscript !== '인식 중...') {
-      insertText(voiceTranscript);
+      // Remove cursor indicator if present
+      const cleanTranscript = voiceTranscript.replace('▎', '');
+      insertText(cleanTranscript);
       setVoiceTranscript('');
       setActiveTab('keyboard');
     }
+  };
+
+  const runSimulatedVoiceTyping = (phrase: string) => {
+    triggerVibration();
+    setIsListening(true);
+    setVoiceTranscript('음성 분석 중...');
+    
+    let currentText = '';
+    let index = 0;
+    
+    // Stop any existing intervals
+    if ((window as any).voiceTypingInterval) {
+      clearInterval((window as any).voiceTypingInterval);
+    }
+    
+    const interval = setInterval(() => {
+      if (index < phrase.length) {
+        currentText += phrase[index];
+        setVoiceTranscript(currentText + '▎');
+        index++;
+      } else {
+        setVoiceTranscript(phrase);
+        setIsListening(false);
+        clearInterval(interval);
+      }
+    }, 45);
+    
+    (window as any).voiceTypingInterval = interval;
   };
 
   // Generate layouts keyboard key row list
@@ -850,8 +880,9 @@ export default function VirtualKeyboard({
   };
 
   const isLandscape = windowDimensions.width > windowDimensions.height;
+  // 가로모드(Landscape mode)에서 키보드의 전체 높이가 화면 전체의 절반을 넘지 않도록 최대 높이를 화면 높이의 45%로 엄격히 제한합니다.
   const maxAllowedHeight = isLandscape 
-    ? Math.min(200, Math.floor(windowDimensions.height * 0.48)) 
+    ? Math.floor(windowDimensions.height * 0.45) 
     : Math.floor(windowDimensions.height * 0.48);
   const actualKeyboardHeight = Math.min(settings.keyboardHeight, maxAllowedHeight);
 
@@ -1391,7 +1422,7 @@ export default function VirtualKeyboard({
 
                 {/* Row 2 of Geomjigeul */}
                 <button
-                  onClick={() => { triggerVibration(); setActiveTab(activeTab === 'clipboard' ? 'keyboard' : 'clipboard'); }}
+                  onClick={() => { triggerVibration(); setActiveTab('clipboard'); setClipboardSubTab('clipboard'); }}
                   className={`h-[34px] flex items-center justify-center font-bold text-[11px] shadow-sm active:scale-95 ${getKeyShapeClass()}`}
                   style={{ backgroundColor: theme.keyBgColor, opacity: 0.8 }}
                 >
@@ -1441,9 +1472,15 @@ export default function VirtualKeyboard({
                 >
                   123
                 </button>
-
+                
                 {/* Row 3 of Geomjigeul */}
-                <div className="h-[34px]"></div>
+                <button
+                  onClick={() => { triggerVibration(); setActiveTab('clipboard'); setClipboardSubTab('phrases'); }}
+                  className={`h-[34px] flex items-center justify-center font-bold text-[11px] shadow-sm active:scale-95 ${getKeyShapeClass()}`}
+                  style={{ backgroundColor: theme.keyBgColor, opacity: 0.8 }}
+                >
+                  상용구
+                </button>
                 <button
                   {...getDragHandlers('ㅅ')}
                   className={`relative h-[34px] flex flex-col items-center justify-center font-bold text-sm shadow-sm active:scale-95 ${getKeyShapeClass()} touch-none`}
@@ -1717,6 +1754,61 @@ export default function VirtualKeyboard({
                   <span className="text-gray-400 italic">아래 마이크를 켠 뒤 이야기를 시작하세요.</span>
                 )}
               </div>
+
+              {/* Quick Preset Speech Bubbles */}
+              <div className="w-full mt-1.5 px-2">
+                <span className="text-[8px] font-extrabold text-sky-500 uppercase tracking-widest block text-left mb-1">
+                  💡 간편 음성 입력 (클릭 시 가상 음성 타이핑 실행)
+                </span>
+                <div className="flex flex-wrap gap-1 justify-center max-h-[44px] overflow-y-auto">
+                  {[
+                    "오늘 약속 장소 어디야?",
+                    "검지글 자판 너무 신기하다!",
+                    "안녕하세요 마이크 음성 입력 테스트 중입니다"
+                  ].map((phrase, i) => (
+                    <button
+                      key={i}
+                      onClick={() => runSimulatedVoiceTyping(phrase)}
+                      className="text-[8px] px-2 py-0.5 rounded bg-sky-500/10 hover:bg-sky-500/25 border border-sky-500/20 font-bold active:scale-95 transition text-sky-400"
+                    >
+                      "{phrase}"
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Custom Speech Typing Input Box */}
+              <div className="w-full mt-1 px-2">
+                <div className="flex items-center gap-1 bg-slate-800 border border-slate-700 rounded-md p-1">
+                  <input
+                    type="text"
+                    placeholder="마이크 미작동 시, 여기에 문장 입력 후 [말하기]"
+                    className="flex-1 bg-transparent text-[8px] outline-none border-none text-white placeholder-zinc-500 font-bold"
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        const target = e.currentTarget;
+                        if (target.value.trim()) {
+                          runSimulatedVoiceTyping(target.value.trim());
+                          target.value = '';
+                        }
+                      }
+                    }}
+                  />
+                  <button
+                    onClick={(e) => {
+                      const inputEl = e.currentTarget.previousSibling as HTMLInputElement;
+                      if (inputEl && inputEl.value.trim()) {
+                        runSimulatedVoiceTyping(inputEl.value.trim());
+                        inputEl.value = '';
+                      }
+                    }}
+                    className="px-1.5 py-0.5 bg-sky-500 hover:bg-sky-600 text-white text-[8px] font-bold rounded shrink-0"
+                  >
+                    말하기
+                  </button>
+                </div>
+              </div>
+
             </div>
 
             {/* Voice Input Bottom Options */}

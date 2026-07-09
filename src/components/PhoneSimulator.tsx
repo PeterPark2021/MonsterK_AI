@@ -185,11 +185,19 @@ export default function PhoneSimulator({
               {activeApp === 'notes' && '📝 Notepad'}
               {activeApp === 'browser' && '🌐 Google'}
               {activeApp === 'login' && '🔒 Authentication'}
+              {activeApp === 'settings' && '⚙️ Settings'}
             </span>
           </div>
           
           {/* Quick App Swapper Icons */}
           <div className="flex items-center gap-1.5">
+            <button 
+              onClick={() => { setActiveApp('settings'); setFocusedInputId(null); }}
+              className={`p-1 flex items-center justify-center rounded-lg transition text-[10px] h-7 w-7 ${activeApp === 'settings' ? 'bg-[#4F46E5] text-white font-extrabold' : 'hover:bg-zinc-800 text-sky-400'}`}
+              title="키보드 관리 센터"
+            >
+              ⚙️
+            </button>
             <button 
               onClick={() => { setActiveApp('kakaotalk'); setFocusedInputId('kakao-input'); }}
               className={`p-1 flex items-center justify-center rounded-lg transition text-[10px] h-7 w-7 font-extrabold ${activeApp === 'kakaotalk' ? 'bg-[#FFE000] text-zinc-900' : 'hover:bg-zinc-800 text-yellow-500'}`}
@@ -478,6 +486,148 @@ export default function PhoneSimulator({
                   <span>로그인 완료하기</span>
                 </button>
               </div>
+            </div>
+          )}
+
+          {/* APP F: KEYBOARD MANAGEMENT SETTINGS CENTER */}
+          {activeApp === 'settings' && (
+            <div className="flex-1 flex flex-col bg-slate-900 text-slate-100 p-3 overflow-y-auto pb-12 select-none">
+              <div className="flex items-center gap-1.5 border-b border-slate-800 pb-2 mb-2.5 shrink-0">
+                <div className="w-6 h-6 rounded-lg bg-indigo-600/20 text-indigo-400 flex items-center justify-center font-bold text-xs">
+                  ⚙️
+                </div>
+                <div className="text-left">
+                  <h3 className="text-[11px] font-black tracking-tight text-white">키보드 앱 관리 센터</h3>
+                  <span className="text-[7px] text-slate-400 block -mt-0.5">Mobile Keyboard OS Controller</span>
+                </div>
+              </div>
+
+              {setSettings ? (
+                <div className="flex flex-col gap-2.5">
+                  {/* Category 1: Layout Selection */}
+                  <div className="bg-slate-950/40 border border-slate-800/60 rounded-xl p-2">
+                    <span className="text-[8px] font-extrabold text-indigo-400 uppercase tracking-widest block mb-1.5">⌨️ 한글 자판 배열 선택</span>
+                    <div className="grid grid-cols-2 gap-1">
+                      {([
+                        { id: 'qwerty', name: '두벌식 (QWERTY)' },
+                        { id: 'cheonjiin', name: '천지인' },
+                        { id: 'naratgul', name: '나랏글' },
+                        { id: 'geomjigeul', name: '검지글' }
+                      ] as const).map((lay) => (
+                        <button
+                          key={lay.id}
+                          onClick={() => setSettings(prev => ({ ...prev, activeKoreanLayout: lay.id }))}
+                          className={`py-1 px-1 rounded-lg text-[9px] font-extrabold text-center transition active:scale-95 border ${
+                            settings.activeKoreanLayout === lay.id
+                              ? 'bg-indigo-600 text-white border-indigo-500 shadow-sm'
+                              : 'bg-slate-800/50 text-slate-300 border-slate-700/50 hover:bg-slate-800'
+                          }`}
+                        >
+                          {lay.name}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Category 2: Keyboard Height */}
+                  <div className="bg-slate-950/40 border border-slate-800/60 rounded-xl p-2">
+                    <div className="flex items-center justify-between mb-1">
+                      <span className="text-[8px] font-extrabold text-indigo-400 uppercase tracking-widest">📏 키보드 전체 높이</span>
+                      <span className="text-[8px] font-mono font-bold bg-indigo-950 text-indigo-300 px-1 py-0.5 rounded">{settings.keyboardHeight}px</span>
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                      <button
+                        onClick={() => setSettings(prev => ({ ...prev, keyboardHeight: Math.max(160, prev.keyboardHeight - 10) }))}
+                        className="w-7 h-6 bg-slate-800 border border-slate-700 rounded text-[10px] font-bold active:scale-95 flex items-center justify-center text-slate-300 hover:text-white"
+                      >
+                        -
+                      </button>
+                      <input
+                        type="range"
+                        min="160"
+                        max="320"
+                        value={settings.keyboardHeight}
+                        onChange={(e) => {
+                          const val = Number(e.target.value);
+                          setSettings(prev => ({ ...prev, keyboardHeight: val }));
+                        }}
+                        className="flex-1 accent-indigo-500 h-1 bg-slate-800 rounded-lg appearance-none cursor-pointer"
+                      />
+                      <button
+                        onClick={() => setSettings(prev => ({ ...prev, keyboardHeight: Math.min(320, prev.keyboardHeight + 10) }))}
+                        className="w-7 h-6 bg-slate-800 border border-slate-700 rounded text-[10px] font-bold active:scale-95 flex items-center justify-center text-slate-300 hover:text-white"
+                      >
+                        +
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Category 3: System feedback */}
+                  <div className="bg-slate-950/40 border border-slate-800/60 rounded-xl p-2 flex flex-col gap-1.5">
+                    <span className="text-[8px] font-extrabold text-indigo-400 uppercase tracking-widest mb-0.5">⚙️ 입력 피드백 및 인공지능</span>
+                    
+                    <div className="flex items-center justify-between text-left">
+                      <div>
+                        <span className="text-[9px] font-bold text-white block">키 누를 때 진동</span>
+                        <span className="text-[7px] text-slate-400 block -mt-0.5">촉각 진동 피드백</span>
+                      </div>
+                      <input
+                        type="checkbox"
+                        checked={settings.vibrateOnPress}
+                        onChange={(e) => setSettings(prev => ({ ...prev, vibrateOnPress: e.target.checked }))}
+                        className="w-4 h-4 accent-indigo-500 cursor-pointer"
+                      />
+                    </div>
+
+                    <div className="flex items-center justify-between border-t border-slate-800/60 pt-1.5 text-left">
+                      <div>
+                        <span className="text-[9px] font-bold text-white block">키 누를 때 효과음</span>
+                        <span className="text-[7px] text-slate-400 block -mt-0.5">기계식 효과음 피드백</span>
+                      </div>
+                      <input
+                        type="checkbox"
+                        checked={settings.soundOnPress}
+                        onChange={(e) => setSettings(prev => ({ ...prev, soundOnPress: e.target.checked }))}
+                        className="w-4 h-4 accent-indigo-500 cursor-pointer"
+                      />
+                    </div>
+
+                    <div className="flex items-center justify-between border-t border-slate-800/60 pt-1.5 text-left">
+                      <div>
+                        <span className="text-[9px] font-bold text-white block">다음 단어 인공지능 추천</span>
+                        <span className="text-[7px] text-slate-400 block -mt-0.5">ML Cumulative Predictor</span>
+                      </div>
+                      <input
+                        type="checkbox"
+                        checked={settings.showNextWordSuggestions}
+                        onChange={(e) => setSettings(prev => ({ ...prev, showNextWordSuggestions: e.target.checked }))}
+                        className="w-4 h-4 accent-indigo-500 cursor-pointer"
+                      />
+                    </div>
+
+                    <div className="flex items-center justify-between border-t border-slate-800/60 pt-1.5 text-left">
+                      <div>
+                        <span className="text-[9px] font-bold text-rose-400 block">비밀번호 보안 모드</span>
+                        <span className="text-[7px] text-slate-400 block -mt-0.5">비밀번호 입력 시 자동추천 숨김</span>
+                      </div>
+                      <input
+                        type="checkbox"
+                        checked={settings.preventPasswordHints}
+                        onChange={(e) => setSettings(prev => ({ ...prev, preventPasswordHints: e.target.checked }))}
+                        className="w-4 h-4 accent-rose-500 cursor-pointer"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="text-[7px] text-center text-zinc-500 italic mt-0.5">
+                    여기서 수정한 자판 설정은 실제 하단 가상 키보드에 실시간으로 즉시 반영됩니다.
+                  </div>
+                </div>
+              ) : (
+                <div className="text-center text-zinc-500 py-6 text-xs italic">
+                  설정 제어 상태가 바인딩되지 않았습니다.
+                </div>
+              )}
             </div>
           )}
 

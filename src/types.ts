@@ -3,7 +3,7 @@
  */
 
 export type KoreanLayout = 'qwerty' | 'cheonjiin' | 'naratgul' | 'geomjigeul';
-export type ActiveApp = 'messages' | 'notes' | 'browser' | 'login' | 'kakaotalk';
+export type ActiveApp = 'messages' | 'notes' | 'browser' | 'login' | 'kakaotalk' | 'settings';
 export type KeyShape = 'round' | 'pill' | 'square' | 'rectangular' | 'borderless';
 
 export interface CustomTheme {
@@ -43,6 +43,8 @@ export interface KeyboardSettings {
   fontFamily: string;
   fontSize: number; // in px
   vibrateOnPress: boolean;
+  soundOnPress: boolean;
+  showNextWordSuggestions: boolean;
   preventPasswordHints: boolean;
   
   // Theme

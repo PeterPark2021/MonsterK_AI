@@ -18,6 +18,8 @@ const DEFAULT_SETTINGS: KeyboardSettings = {
   fontFamily: 'Inter',
   fontSize: 16,
   vibrateOnPress: true,
+  soundOnPress: true,
+  showNextWordSuggestions: true,
   preventPasswordHints: true,
   themeId: 'slate-dark',
   customTheme: {
@@ -246,6 +248,16 @@ export default function App() {
   // External launcher simulations
   const handleLaunchExternalApp = (appName: string) => {
     setExternalAppNotification(appName);
+    if (appName === '설정') {
+      setActiveApp('settings');
+      setFocusedInputId(null);
+    } else if (appName === '인터넷') {
+      setActiveApp('browser');
+      setFocusedInputId('browser-input');
+    } else if (appName === '음성 검색') {
+      setActiveApp('browser');
+      setFocusedInputId('browser-input');
+    }
     setTimeout(() => {
       setExternalAppNotification(null);
     }, 3000);
