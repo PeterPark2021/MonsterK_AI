@@ -201,6 +201,32 @@ export function composeCheonjiinVowels(keys: string[]): string {
 }
 
 /**
+ * Pre-processes a flat sequence of Jamos to resolve Cheonjiin-specific vowel input sequences.
+ */
+export function resolveCheonjiinBuffer(buffer: string[]): string[] {
+  const resolved: string[] = [];
+  let tempVowels: string[] = [];
+  
+  for (const item of buffer) {
+    if (item === 'ㅣ' || item === '·' || item === 'ㅡ') {
+      tempVowels.push(item);
+    } else {
+      if (tempVowels.length > 0) {
+        const composedVowel = composeCheonjiinVowels(tempVowels);
+        resolved.push(...Array.from(composedVowel));
+        tempVowels = [];
+      }
+      resolved.push(item);
+    }
+  }
+  if (tempVowels.length > 0) {
+    const composedVowel = composeCheonjiinVowels(tempVowels);
+    resolved.push(...Array.from(composedVowel));
+  }
+  return resolved;
+}
+
+/**
  * Assembles a flat sequence of Hangul Jamos into a fully composed string.
  * Implements standard Hangul Automaton logic.
  */

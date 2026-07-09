@@ -485,9 +485,9 @@ class SmartKeyboardService : InputMethodService(), SharedPreferences.OnSharedPre
                         val strokeMap = mapOf(
                             "ㄱ" to "ㅋ", "ㅋ" to "ㄲ", "ㄴ" to "ㄷ", "ㄷ" to "ㅌ", "ㅌ" to "ㄸ",
                             "ㅁ" to "ㅂ", "ㅂ" to "ㅍ", "ㅍ" to "ㅃ", "ㅅ" to "ㅈ", "ㅈ" to "ㅊ",
-                            "ㅊ" to "ㅉ", "ㅇ" to "ㅎ", "ㅏ" to "ㅑ", "ㅓ" to "여", "ㅗ" to "요",
-                            "ㅜ" to "유", "ㅐ" to "ㅒ", "ㅔ" to "ㅖ", "ㅑ" to "ㅏ", "ㅕ" to "ㅓ",
-                            "용" to "요", "ㅛ" to "ㅗ", "ㅠ" to "ㅜ"
+                            "ㅊ" to "ㅉ", "ㅇ" to "ㅎ", "ㅏ" to "ㅑ", "ㅓ" to "ㅕ", "ㅗ" to "ㅛ",
+                            "ㅜ" to "ㅠ", "ㅐ" to "ㅒ", "ㅔ" to "ㅖ", "ㅑ" to "ㅏ", "ㅕ" to "ㅓ",
+                            "ㅛ" to "ㅗ", "ㅠ" to "ㅜ"
                         )
                         if (strokeMap.containsKey(lastVal)) {
                             koJamoBuffer[lastIdx] = strokeMap[lastVal]!!
@@ -612,11 +612,11 @@ class SmartKeyboardService : InputMethodService(), SharedPreferences.OnSharedPre
             if (i + 1 < buffer.size) {
                 val combined = buffer[i] + buffer[i + 1]
                 val combinedVowel = when (combined) {
-                    "ㅣㅏ" -> "야"
-                    "ㅣㅓ" -> "여"
-                    "ㅣㅗ" -> "요"
-                    "ㅣㅜ" -> "유"
-                    "ㅡㅣ" -> "의"
+                    "ㅣㅏ" -> "ㅑ"
+                    "ㅣㅓ" -> "ㅕ"
+                    "ㅣㅗ" -> "ㅛ"
+                    "ㅣㅜ" -> "ㅠ"
+                    "ㅡㅣ" -> "ㅢ"
                     else -> null
                 }
                 if (combinedVowel != null) {

@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Globe, Smile, Mic, Delete, RefreshCw, Clipboard, Check, Volume2, Search, ArrowRight, ShieldCheck } from 'lucide-react';
 import { KeyboardSettings, CustomTheme, MLModelStats } from '../types';
-import { assembleJamos, composeCheonjiinVowels, composeGeomjigeulVowels, isVowel, STROKE_ADDITIONS, DOUBLE_CONSONANTS } from '../utils/hangul';
+import { assembleJamos, composeCheonjiinVowels, resolveCheonjiinBuffer, composeGeomjigeulVowels, isVowel, STROKE_ADDITIONS, DOUBLE_CONSONANTS } from '../utils/hangul';
 import { getAutocompleteSuggestions, predictNextWords, getSentenceCorrection } from '../utils/keyboardEngine';
 
 interface VirtualKeyboardProps {
@@ -169,8 +169,8 @@ export default function VirtualKeyboard({
       if (settings.activeKoreanLayout === 'cheonjiin' && cheonjiinJamos.length > 0) {
         const nextJamos = cheonjiinJamos.slice(0, -1);
         setCheonjiinJamos(nextJamos);
-        const currentComposed = assembleJamos(cheonjiinJamos);
-        const nextComposed = assembleJamos(nextJamos);
+        const currentComposed = assembleJamos(resolveCheonjiinBuffer(cheonjiinJamos));
+        const nextComposed = assembleJamos(resolveCheonjiinBuffer(nextJamos));
         if (textValue.endsWith(currentComposed)) {
           setTextValue(textValue.slice(0, -currentComposed.length) + nextComposed);
         }
@@ -288,8 +288,8 @@ export default function VirtualKeyboard({
     const newJamos = [...cheonjiinJamos, vowelKey];
     setCheonjiinJamos(newJamos);
     
-    const prevComposed = assembleJamos(cheonjiinJamos);
-    const newComposed = assembleJamos(newJamos);
+    const prevComposed = assembleJamos(resolveCheonjiinBuffer(cheonjiinJamos));
+    const newComposed = assembleJamos(resolveCheonjiinBuffer(newJamos));
     
     if (textValue.endsWith(prevComposed)) {
       setTextValue(textValue.slice(0, -prevComposed.length) + newComposed);
@@ -314,8 +314,8 @@ export default function VirtualKeyboard({
         newJamos[newJamos.length - 1] = baseConsonants[nextIndex];
         setCheonjiinJamos(newJamos);
         
-        const prevComposed = assembleJamos(cheonjiinJamos);
-        const newComposed = assembleJamos(newJamos);
+        const prevComposed = assembleJamos(resolveCheonjiinBuffer(cheonjiinJamos));
+        const newComposed = assembleJamos(resolveCheonjiinBuffer(newJamos));
         if (textValue.endsWith(prevComposed)) {
           setTextValue(textValue.slice(0, -prevComposed.length) + newComposed);
         }
@@ -327,8 +327,8 @@ export default function VirtualKeyboard({
     newJamos.push(baseConsonants[0]);
     setCheonjiinJamos(newJamos);
     
-    const prevComposed = assembleJamos(cheonjiinJamos);
-    const newComposed = assembleJamos(newJamos);
+    const prevComposed = assembleJamos(resolveCheonjiinBuffer(cheonjiinJamos));
+    const newComposed = assembleJamos(resolveCheonjiinBuffer(newJamos));
     if (textValue.endsWith(prevComposed)) {
       setTextValue(textValue.slice(0, -prevComposed.length) + newComposed);
     } else {
@@ -350,8 +350,8 @@ export default function VirtualKeyboard({
       nextJamos[lastIdx] = STROKE_ADDITIONS[lastJamo];
       setCheonjiinJamos(nextJamos);
       
-      const prevComposed = assembleJamos(cheonjiinJamos);
-      const newComposed = assembleJamos(nextJamos);
+      const prevComposed = assembleJamos(resolveCheonjiinBuffer(cheonjiinJamos));
+      const newComposed = assembleJamos(resolveCheonjiinBuffer(nextJamos));
       if (textValue.endsWith(prevComposed)) {
         setTextValue(textValue.slice(0, -prevComposed.length) + newComposed);
       }
@@ -370,8 +370,8 @@ export default function VirtualKeyboard({
       nextJamos[lastIdx] = DOUBLE_CONSONANTS[lastJamo];
       setCheonjiinJamos(nextJamos);
       
-      const prevComposed = assembleJamos(cheonjiinJamos);
-      const newComposed = assembleJamos(nextJamos);
+      const prevComposed = assembleJamos(resolveCheonjiinBuffer(cheonjiinJamos));
+      const newComposed = assembleJamos(resolveCheonjiinBuffer(nextJamos));
       if (textValue.endsWith(prevComposed)) {
         setTextValue(textValue.slice(0, -prevComposed.length) + newComposed);
       }
