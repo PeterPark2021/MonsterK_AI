@@ -780,23 +780,27 @@ export default function VirtualKeyboard({
 
   const isLandscape = windowDimensions.width > windowDimensions.height;
   const maxAllowedHeight = isLandscape 
-    ? Math.min(160, Math.floor(windowDimensions.height * 0.4)) 
-    : Math.floor(windowDimensions.height * 0.45);
+    ? Math.min(200, Math.floor(windowDimensions.height * 0.48)) 
+    : Math.floor(windowDimensions.height * 0.48);
   const actualKeyboardHeight = Math.min(settings.keyboardHeight, maxAllowedHeight);
 
   // Dynamic sizing factors to prevent cutoff in restricted/landscape environments
   const isCompact = isLandscape || actualKeyboardHeight < 240;
 
-  const suggestionBarHeight = isCompact ? 32 : 40;
-  const topNumberRowHeight = isCompact ? 18 : 26;
+  const suggestionBarHeight = isCompact ? 28 : 36;
+  const paddingAllowance = isCompact ? 4 : 12;
+  const usableHeightForKeys = actualKeyboardHeight - suggestionBarHeight - paddingAllowance;
+
+  // Proportional height distribution (ratio: 12% for top numbers, 18% for bottom toolbar, remaining for key layouts)
+  const topNumberRowHeight = Math.max(14, Math.min(24, Math.floor(usableHeightForKeys * 0.12)));
+  const bottomToolbarHeight = Math.max(22, Math.min(36, Math.floor(usableHeightForKeys * 0.18)));
+  const remainingHeightForLayout = usableHeightForKeys - topNumberRowHeight - bottomToolbarHeight - (isCompact ? 4 : 10);
 
   // Key heights for different layouts
-  const qwertyKeyHeight = isCompact ? 28 : 40;
-  const cheonjiinKeyHeight = isCompact ? 24 : 34;
-  const naratgulKeyHeight = isCompact ? 24 : 36;
-  const geomjigeulKeyHeight = isCompact ? 24 : 34;
-
-  const bottomToolbarHeight = isCompact ? 28 : 40;
+  const qwertyKeyHeight = Math.max(18, Math.floor(remainingHeightForLayout / 3));
+  const cheonjiinKeyHeight = Math.max(16, Math.floor(remainingHeightForLayout / 4));
+  const naratgulKeyHeight = Math.max(16, Math.floor(remainingHeightForLayout / 4));
+  const geomjigeulKeyHeight = Math.max(16, Math.floor(remainingHeightForLayout / 4));
 
   return (
     <div 

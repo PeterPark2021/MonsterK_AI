@@ -423,6 +423,7 @@ export default function App() {
             >
               <PhoneSimulator
                 settings={settings}
+                setSettings={setSettings}
                 textValue={textValue}
                 setTextValue={setTextValue}
                 activeApp={activeApp}

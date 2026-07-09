@@ -9,6 +9,7 @@ import { ActiveApp, KeyboardSettings, ChatMessage } from '../types';
 
 interface PhoneSimulatorProps {
   settings: KeyboardSettings;
+  setSettings?: React.Dispatch<React.SetStateAction<KeyboardSettings>>;
   textValue: string;
   setTextValue: (val: string) => void;
   activeApp: ActiveApp;
@@ -23,6 +24,7 @@ interface PhoneSimulatorProps {
 
 export default function PhoneSimulator({
   settings,
+  setSettings,
   textValue,
   setTextValue,
   activeApp,
@@ -408,7 +410,44 @@ export default function PhoneSimulator({
 
         {/* 4. Custom Virtual Keyboard nested at bottom of the Smartphone viewport */}
         <div className="shrink-0 z-40 bg-zinc-900 border-t border-zinc-800">
-          {children}
+          {settings.isKeyboardEnabled && settings.isKeyboardSelected ? (
+            children
+          ) : (
+            <div className="bg-zinc-950 text-zinc-400 p-4 h-[190px] flex flex-col items-center justify-center text-center gap-1.5 select-none relative">
+              {/* Fallback layout background grid outline */}
+              <div className="absolute inset-0 grid grid-rows-3 grid-cols-5 gap-1 p-2 opacity-10 pointer-events-none">
+                {Array.from({ length: 15 }).map((_, i) => (
+                  <div key={i} className="border border-white rounded-lg" />
+                ))}
+              </div>
+              
+              <div className="z-10 flex flex-col items-center gap-1">
+                <span className="text-lg">⚙️ 시스템 기본 키보드 대기 중</span>
+                <div className="text-[10px] font-bold text-zinc-300 leading-tight">
+                  {!settings.isKeyboardEnabled 
+                    ? "1단계: 설정에서 키보드 앱을 활성화해 주세요." 
+                    : "2단계: 기본 입력기로 '커스텀 키보드'를 선택해 주세요."}
+                </div>
+                <p className="text-[9px] text-zinc-500 leading-relaxed max-w-[220px] mt-0.5">
+                  좌측 <strong className="text-sky-400">설치 마법사</strong> 단계에서 옵션을 켜는 즉시 이 가상 스마트폰에 최첨단 커스텀 키보드가 즉각 탑재됩니다!
+                </p>
+                {setSettings && (
+                  <button
+                    onClick={() => {
+                      setSettings(prev => ({
+                        ...prev,
+                        isKeyboardEnabled: true,
+                        isKeyboardSelected: true
+                      }));
+                    }}
+                    className="z-20 mt-1 px-3 py-1 bg-sky-600 hover:bg-sky-500 text-[10px] text-white rounded font-bold transition shadow-md active:scale-95"
+                  >
+                    🚀 가상 폰에 바로 활성화 적용하기
+                  </button>
+                )}
+              </div>
+            </div>
+          )}
         </div>
 
         {/* 5. Android Navigation bar (Back, Home, Apps) */}
