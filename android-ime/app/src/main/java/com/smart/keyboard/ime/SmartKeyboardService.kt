@@ -31,6 +31,7 @@ class SmartKeyboardService : InputMethodService(), SharedPreferences.OnSharedPre
     private var currentLanguage = "ko" // "ko" or "en"
     private var activeKoreanLayout = "cheonjiin" // "qwerty", "cheonjiin", "naratgul" (default matching web)
     private var isShiftActive = false
+    private var isSymbolsActive = false
     private val koJamoBuffer = mutableListOf<String>()
 
     override fun onCreate() {
@@ -227,18 +228,39 @@ class SmartKeyboardService : InputMethodService(), SharedPreferences.OnSharedPre
             }
         }
 
-        // Language toggle (한/영)
-        val langBtn = Button(this).apply {
-            text = "한 / EN"
+        // 1. Symbol/Emoji button (?123 / !#%)
+        val symBtn = Button(this).apply {
+            text = if (isSymbolsActive) "ABC" else "!#%"
             setTextColor(android.graphics.Color.WHITE)
-            textSize = 14f
-            background = createGradientDrawable("#334155", 8f) // Slate-700
-            layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1.5f).apply {
-                setMargins((4 * density).toInt(), 0, (4 * density).toInt(), 0)
+            textSize = 13f
+            isAllCaps = false
+            background = createGradientDrawable("#475569", 8f) // Slate-600
+            layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1.2f).apply {
+                setMargins((3 * density).toInt(), 0, (3 * density).toInt(), 0)
             }
             setOnClickListener {
                 triggerHapticFeedback()
                 commitActiveComposition()
+                isSymbolsActive = !isSymbolsActive
+                buildKeysLayout()
+            }
+        }
+        row.addView(symBtn)
+
+        // 2. Language toggle (한/영)
+        val langBtn = Button(this).apply {
+            text = "한/EN"
+            setTextColor(android.graphics.Color.WHITE)
+            textSize = 12f
+            isAllCaps = false
+            background = createGradientDrawable("#334155", 8f) // Slate-700
+            layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1.2f).apply {
+                setMargins((3 * density).toInt(), 0, (3 * density).toInt(), 0)
+            }
+            setOnClickListener {
+                triggerHapticFeedback()
+                commitActiveComposition()
+                isSymbolsActive = false
                 currentLanguage = if (currentLanguage == "ko") "en" else "ko"
                 layoutIndicatorBtn.visibility = if (currentLanguage == "ko") View.VISIBLE else View.GONE
                 buildKeysLayout()
@@ -247,14 +269,15 @@ class SmartKeyboardService : InputMethodService(), SharedPreferences.OnSharedPre
         }
         row.addView(langBtn)
 
-        // Space bar
+        // 3. Space bar
         val spaceBtn = Button(this).apply {
             text = if (currentLanguage == "ko") "스페이스" else "Space"
             setTextColor(android.graphics.Color.WHITE)
-            textSize = 14f
+            textSize = 13f
+            isAllCaps = false
             background = createGradientDrawable("#1e293b", 8f) // Slate-800
-            layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 5.0f).apply {
-                setMargins((4 * density).toInt(), 0, (4 * density).toInt(), 0)
+            layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 3.2f).apply {
+                setMargins((3 * density).toInt(), 0, (3 * density).toInt(), 0)
             }
             setOnClickListener {
                 triggerHapticFeedback()
@@ -265,14 +288,53 @@ class SmartKeyboardService : InputMethodService(), SharedPreferences.OnSharedPre
         }
         row.addView(spaceBtn)
 
-        // Enter key
+        // 4. Voice Input (Mic) button
+        val micBtn = Button(this).apply {
+            text = "🎙"
+            setTextColor(android.graphics.Color.WHITE)
+            textSize = 13f
+            isAllCaps = false
+            background = createGradientDrawable("#334155", 8f) // Slate-700
+            layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1.0f).apply {
+                setMargins((3 * density).toInt(), 0, (3 * density).toInt(), 0)
+            }
+            setOnClickListener {
+                triggerHapticFeedback()
+                commitActiveComposition()
+                startVoiceRecognition()
+            }
+        }
+        row.addView(micBtn)
+
+        // 5. Layout Switcher Menu button (change layout directly without settings)
+        val layoutBtn = Button(this).apply {
+            text = "배열"
+            setTextColor(android.graphics.Color.WHITE)
+            textSize = 11f
+            isAllCaps = false
+            background = createGradientDrawable("#334155", 8f) // Slate-700
+            layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1.1f).apply {
+                setMargins((3 * density).toInt(), 0, (3 * density).toInt(), 0)
+            }
+            setOnClickListener {
+                triggerHapticFeedback()
+                commitActiveComposition()
+                cycleLayout()
+                val label = getLayoutLabel()
+                android.widget.Toast.makeText(this@SmartKeyboardService, "키보드 배열: $label", android.widget.Toast.LENGTH_SHORT).show()
+            }
+        }
+        row.addView(layoutBtn)
+
+        // 6. Enter key
         val enterBtn = Button(this).apply {
             text = "Enter"
             setTextColor(android.graphics.Color.WHITE)
-            textSize = 14f
+            textSize = 12f
+            isAllCaps = false
             background = createGradientDrawable("#4f46e5", 8f) // Deep indigo
-            layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1.5f).apply {
-                setMargins((4 * density).toInt(), 0, (4 * density).toInt(), 0)
+            layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1.4f).apply {
+                setMargins((3 * density).toInt(), 0, (3 * density).toInt(), 0)
             }
             setOnClickListener {
                 triggerHapticFeedback()
@@ -288,50 +350,80 @@ class SmartKeyboardService : InputMethodService(), SharedPreferences.OnSharedPre
         return row
     }
 
+    private fun startVoiceRecognition() {
+        try {
+            val intent = android.content.Intent(android.speech.RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
+                putExtra(android.speech.RecognizerIntent.EXTRA_LANGUAGE_MODEL, android.speech.RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
+                putExtra(android.speech.RecognizerIntent.EXTRA_LANGUAGE, "ko-KR")
+                putExtra(android.speech.RecognizerIntent.EXTRA_PROMPT, "말씀하세요...")
+                addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
+            }
+            startActivity(intent)
+        } catch (e: Exception) {
+            android.widget.Toast.makeText(this, "음성 인식을 지원하지 않거나 마이크 권한이 필요합니다.", android.widget.Toast.LENGTH_SHORT).show()
+        }
+    }
+
     private fun buildKeysLayout() {
         keysContainer.removeAllViews()
         val density = resources.displayMetrics.density
 
-        if (currentLanguage == "en") {
-            // English QWERTY
-            val row1 = listOf("q", "w", "e", "r", "t", "y", "u", "i", "o", "p")
-            val row2 = listOf("a", "s", "d", "f", "g", "h", "j", "k", "l")
-            val row3 = listOf("⇧", "z", "x", "c", "v", "b", "n", "m", "⌫")
+        if (isSymbolsActive) {
+            val row1 = listOf("1", "2", "3", "4", "5", "6", "7", "8", "9", "0")
+            val row2 = listOf("!", "@", "#", "$", "%", "^", "&", "*", "(", ")")
+            val row3 = listOf("_", "+", "=", "-", "{", "}", "[", "]", "\\", "|")
+            val row4 = listOf(";", ":", "'", "\"", "<", ">", ",", ".", "?", "⌫")
+            val row5 = listOf("😃", "🐱", "🚗", "✈", "❤️", "👍", "🔥", "✨", "🎉", "💡")
             keysContainer.addView(createRow(row1))
             keysContainer.addView(createRow(row2))
             keysContainer.addView(createRow(row3))
+            keysContainer.addView(createRow(row4))
+            keysContainer.addView(createRow(row5))
         } else {
-            // Korean layouts
-            when (activeKoreanLayout) {
-                "qwerty" -> {
-                    val row1 = if (isShiftActive) {
-                        listOf("ㅃ", "ㅉ", "ㄷ", "ㄲ", "ㅆ", "ㅛ", "ㅕ", "ㅑ", "ㅒ", "ㅖ")
-                    } else {
-                        listOf("ㅂ", "ㅈ", "ㄷ", "ㄱ", "ㅅ", "ㅛ", "ㅕ", "ㅑ", "ㅐ", "ㅔ")
+            // Always show numeric row at the top of character layouts
+            keysContainer.addView(createRow(listOf("1", "2", "3", "4", "5", "6", "7", "8", "9", "0")))
+
+            if (currentLanguage == "en") {
+                // English QWERTY
+                val row1 = listOf("q", "w", "e", "r", "t", "y", "u", "i", "o", "p")
+                val row2 = listOf("a", "s", "d", "f", "g", "h", "j", "k", "l")
+                val row3 = listOf("⇧", "z", "x", "c", "v", "b", "n", "m", "⌫")
+                keysContainer.addView(createRow(row1))
+                keysContainer.addView(createRow(row2))
+                keysContainer.addView(createRow(row3))
+            } else {
+                // Korean layouts
+                when (activeKoreanLayout) {
+                    "qwerty" -> {
+                        val row1 = if (isShiftActive) {
+                            listOf("ㅃ", "ㅉ", "ㄷ", "ㄲ", "ㅆ", "ㅛ", "ㅕ", "ㅑ", "ㅒ", "ㅖ")
+                        } else {
+                            listOf("ㅂ", "ㅈ", "ㄷ", "ㄱ", "ㅅ", "ㅛ", "ㅕ", "ㅑ", "ㅐ", "ㅔ")
+                        }
+                        val row2 = listOf("ㅁ", "ㄴ", "ㅇ", "ㄹ", "ㅎ", "ㅗ", "ㅓ", "ㅏ", "ㅣ")
+                        val row3 = listOf("⇧", "ㅋ", "ㅌ", "ㅊ", "ㅍ", "ㅠ", "ㅜ", "ㅡ", "⌫")
+                        keysContainer.addView(createRow(row1))
+                        keysContainer.addView(createRow(row2))
+                        keysContainer.addView(createRow(row3))
                     }
-                    val row2 = listOf("ㅁ", "ㄴ", "ㅇ", "ㄹ", "ㅎ", "ㅗ", "ㅓ", "ㅏ", "ㅣ")
-                    val row3 = listOf("⇧", "ㅋ", "ㅌ", "ㅊ", "ㅍ", "ㅠ", "ㅜ", "ㅡ", "⌫")
-                    keysContainer.addView(createRow(row1))
-                    keysContainer.addView(createRow(row2))
-                    keysContainer.addView(createRow(row3))
-                }
-                "cheonjiin" -> {
-                    keysContainer.addView(createRow(listOf("ㅣ", "·", "ㅡ")))
-                    keysContainer.addView(createRow(listOf("ㄱㅋ", "ㄴㄹ", "ㄷㅌ")))
-                    keysContainer.addView(createRow(listOf("ㅂㅍ", "ㅅㅎ", "ㅈㅊ")))
-                    keysContainer.addView(createRow(listOf("획추가", "ㅇㅁ", "쌍자음", "⌫")))
-                }
-                "naratgul" -> {
-                    keysContainer.addView(createRow(listOf("ㄱ", "ㄴ", "ㄷ", "ㅏ", "ㅓ")))
-                    keysContainer.addView(createRow(listOf("ㄹ", "ㅁ", "ㅅ", "ㅗ", "ㅜ")))
-                    keysContainer.addView(createRow(listOf("ㅇ", "ㅈ", "ㅊ", "ㅡ", "ㅣ")))
-                    keysContainer.addView(createRow(listOf("획추가", "쌍자음", "⌫")))
-                }
-                "geomjigeul" -> {
-                    keysContainer.addView(createRow(listOf("ㄱ", "ㄴ", "ㄷ", "ㅗ", "ㅏ")))
-                    keysContainer.addView(createRow(listOf("ㄹ", "ㅁ", "ㅂ", "ㅡ", "ㅣ")))
-                    keysContainer.addView(createRow(listOf("ㅅ", "ㅇ", "ㅈ", "ㅜ", "ㅓ")))
-                    keysContainer.addView(createRow(listOf("획추가", "쌍자음", "⌫")))
+                    "cheonjiin" -> {
+                        keysContainer.addView(createRow(listOf("ㅣ", "·", "ㅡ")))
+                        keysContainer.addView(createRow(listOf("ㄱㅋ", "ㄴㄹ", "ㄷㅌ")))
+                        keysContainer.addView(createRow(listOf("ㅂㅍ", "ㅅㅎ", "ㅈㅊ")))
+                        keysContainer.addView(createRow(listOf("획추가", "ㅇㅁ", "쌍자음", "⌫")))
+                    }
+                    "naratgul" -> {
+                        keysContainer.addView(createRow(listOf("ㄱ", "ㄴ", "ㄷ", "ㅏ", "ㅓ")))
+                        keysContainer.addView(createRow(listOf("ㄹ", "ㅁ", "ㅅ", "ㅗ", "ㅜ")))
+                        keysContainer.addView(createRow(listOf("ㅇ", "ㅈ", "ㅊ", "ㅡ", "ㅣ")))
+                        keysContainer.addView(createRow(listOf("획추가", "쌍자음", "⌫")))
+                    }
+                    "geomjigeul" -> {
+                        keysContainer.addView(createRow(listOf("ㄱ", "ㄴ", "ㄷ", "ㅗ", "ㅏ")))
+                        keysContainer.addView(createRow(listOf("ㄹ", "ㅁ", "ㅂ", "ㅡ", "ㅣ")))
+                        keysContainer.addView(createRow(listOf("ㅅ", "ㅇ", "ㅈ", "ㅜ", "ㅓ")))
+                        keysContainer.addView(createRow(listOf("획추가", "쌍자음", "⌫")))
+                    }
                 }
             }
         }
@@ -455,6 +547,15 @@ class SmartKeyboardService : InputMethodService(), SharedPreferences.OnSharedPre
             val ic: InputConnection = currentInputConnection ?: return
 
             when (key) {
+                "1", "2", "3", "4", "5", "6", "7", "8", "9", "0",
+                "!", "@", "#", "$", "%", "^", "&", "*", "(", ")",
+                "_", "+", "=", "-", "{", "}", "[", "]", "\\", "|",
+                ";", ":", "'", "\"", "<", ">", ",", ".", "?",
+                "😃", "🐱", "🚗", "✈", "❤️", "👍", "🔥", "✨", "🎉", "💡" -> {
+                    commitActiveComposition()
+                    ic.commitText(key, 1)
+                    updateSuggestions()
+                }
                 "⌫" -> {
                     if (currentLanguage == "ko" && koJamoBuffer.isNotEmpty()) {
                         koJamoBuffer.removeAt(koJamoBuffer.size - 1)

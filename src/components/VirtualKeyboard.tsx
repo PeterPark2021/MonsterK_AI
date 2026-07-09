@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Globe, Smile, Mic, Delete, RefreshCw, Clipboard, Check, Volume2, Search, ArrowRight, ShieldCheck } from 'lucide-react';
-import { KeyboardSettings, CustomTheme, MLModelStats } from '../types';
+import { KeyboardSettings, CustomTheme, MLModelStats, KoreanLayout } from '../types';
 import { assembleJamos, composeCheonjiinVowels, resolveCheonjiinBuffer, composeGeomjigeulVowels, isVowel, STROKE_ADDITIONS, DOUBLE_CONSONANTS } from '../utils/hangul';
 import { getAutocompleteSuggestions, predictNextWords, getSentenceCorrection } from '../utils/keyboardEngine';
 
@@ -63,6 +63,15 @@ export default function VirtualKeyboard({
   // Suggestion correction state for the [수정] (Correct) mechanism
   const [correctionCandidate, setCorrectionCandidate] = useState<{ original: string; corrected: string; sentence: string } | null>(null);
   const [showCorrectionToast, setShowCorrectionToast] = useState(false);
+  const [showLayoutMenu, setShowLayoutMenu] = useState(false);
+
+  const handleLayoutChange = (layout: KoreanLayout) => {
+    setSettings(prev => ({
+      ...prev,
+      activeKoreanLayout: layout
+    }));
+    setShowLayoutMenu(false);
+  };
 
   const theme = settings.customTheme;
   const isSecurityMode = settings.preventPasswordHints && focusedInputId?.toLowerCase().includes('password');
@@ -819,6 +828,23 @@ export default function VirtualKeyboard({
         {/* TAB 1: Standby Character Keyboard */}
         {activeTab === 'keyboard' && (
           <div className="flex flex-col justify-between h-full gap-1">
+            {/* Dedicated Top Number Row (always visible) */}
+            <div className="flex justify-between w-full gap-0.5 mb-0.5">
+              {['1', '2', '3', '4', '5', '6', '7', '8', '9', '0'].map((num) => (
+                <button
+                  key={num}
+                  onClick={() => { triggerVibration(); insertText(num); }}
+                  className={`flex-1 h-[26px] flex items-center justify-center font-bold text-xs shadow-sm transition active:scale-90 ${getKeyShapeClass()}`}
+                  style={{
+                    backgroundColor: theme.keyBgColor,
+                    color: theme.keyTextColor,
+                    opacity: 0.95
+                  }}
+                >
+                  {num}
+                </button>
+              ))}
+            </div>
             
             {/* 3A. QWERTY / Standard Rows */}
             {(currentLanguage === 'en' || settings.activeKoreanLayout === 'qwerty') ? (
@@ -1296,11 +1322,11 @@ export default function VirtualKeyboard({
 
                 {/* Row 4 of Geomjigeul */}
                 <button
-                  onClick={() => { triggerVibration(); alert("설정 메뉴입니다."); }}
+                  onClick={() => { triggerVibration(); setShowLayoutMenu(true); }}
                   className={`h-[34px] flex items-center justify-center font-bold text-[11px] shadow-sm active:scale-95 ${getKeyShapeClass()}`}
-                  style={{ backgroundColor: theme.keyBgColor, opacity: 0.8 }}
+                  style={{ backgroundColor: theme.keyBgColor, opacity: 0.9 }}
                 >
-                  설정
+                  배열
                 </button>
                 <button
                   onClick={handleGeomjigeulStrokeAddition}
@@ -1349,6 +1375,16 @@ export default function VirtualKeyboard({
                 style={{ backgroundColor: theme.keyBgColor }}
               >
                 !?☺
+              </button>
+
+              {/* Quick Layout Switcher Button */}
+              <button
+                onClick={() => { triggerVibration(); setShowLayoutMenu(true); }}
+                className={`px-2.5 h-10 flex items-center justify-center font-bold text-xs shadow-sm active:scale-95 ${getKeyShapeClass()}`}
+                style={{ backgroundColor: theme.keyBgColor, color: theme.accentColor }}
+                title="배열 변경"
+              >
+                배열
               </button>
 
               {/* Language Switch Globe */}
@@ -1532,6 +1568,51 @@ export default function VirtualKeyboard({
           </div>
         )}
       </div>
+
+      {/* Quick Keyboard Layout Switcher Menu */}
+      {showLayoutMenu && (
+        <div className="absolute inset-0 bg-slate-900/95 z-50 flex flex-col justify-between p-3.5 rounded-xl border border-slate-700/50">
+          <div className="flex items-center justify-between border-b border-slate-700/50 pb-2">
+            <span className="text-white text-xs font-bold font-sans flex items-center gap-1">
+              ⌨️ 키보드 배열 변경
+            </span>
+            <button
+              onClick={() => setShowLayoutMenu(false)}
+              className="text-gray-400 hover:text-white text-[10px] font-bold px-2 py-1 rounded bg-slate-800 border border-slate-700"
+            >
+              닫기
+            </button>
+          </div>
+
+          <div className="grid grid-cols-2 gap-2 my-auto">
+            {[
+              { id: 'qwerty', name: '두벌식 (QWERTY)' },
+              { id: 'cheonjiin', name: '천지인 (Cheonjiin)' },
+              { id: 'naratgul', name: '나랏글 (Naratgul)' },
+              { id: 'geomjigeul', name: '검지글 (Geomjigeul)' }
+            ].map((lay) => (
+              <button
+                key={lay.id}
+                onClick={() => {
+                  triggerVibration();
+                  handleLayoutChange(lay.id as KoreanLayout);
+                }}
+                className={`py-3 text-xs font-bold rounded-lg border transition duration-150 ${
+                  settings.activeKoreanLayout === lay.id
+                    ? 'bg-sky-500 border-sky-400 text-white shadow-md font-extrabold scale-[1.02]'
+                    : 'bg-slate-800 border-slate-700 text-slate-300 hover:bg-slate-700 hover:text-white'
+                }`}
+              >
+                {lay.name}
+              </button>
+            ))}
+          </div>
+
+          <div className="text-[10px] text-slate-500 text-center font-medium border-t border-slate-850 pt-2">
+            시스템 설정에 들어가지 않고 키보드 배열을 바로 전환합니다.
+          </div>
+        </div>
+      )}
 
       {/* Floating auto-correct Toast notification */}
       <AnimatePresence>
