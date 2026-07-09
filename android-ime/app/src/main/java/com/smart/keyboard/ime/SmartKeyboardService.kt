@@ -1172,33 +1172,6 @@ class SmartKeyboardService : InputMethodService(), SharedPreferences.OnSharedPre
 
         scrollView.addView(listLayout)
         keysContainer.addView(scrollView)
-    }rToCommit = if (isShiftActive) key.uppercase() else key.lowercase()
-                        ic.commitText(charToCommit, 1)
-                        if (isShiftActive) {
-                            isShiftActive = false
-                            buildKeysLayout()
-                        }
-                    } else {
-                        // Korean Jamos
-                        koJamoBuffer.add(key)
-                        val composed = when (activeKoreanLayout) {
-                            "cheonjiin" -> automaton.assembleJamos(resolveCheonjiinBuffer(koJamoBuffer))
-                            "geomjigeul" -> automaton.assembleJamos(resolveGeomjigeulBuffer(koJamoBuffer))
-                            else -> automaton.assembleJamos(koJamoBuffer)
-                        }
-                        ic.setComposingText(composed, 1)
-
-                        if (isShiftActive) {
-                            isShiftActive = false
-                            buildKeysLayout()
-                        }
-                    }
-                    updateSuggestions()
-                }
-            }
-        } catch (e: Exception) {
-            e.printStackTrace()
-        }
     }
 
     private fun cycleCheonjiin(group: List<String>) {
