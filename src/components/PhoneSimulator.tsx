@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import { 
   MessageSquare, FileText, Globe, Lock, Send, Wifi, Battery, Smartphone,
   Menu, ChevronLeft, Volume2, Search, Play, HelpCircle, ArrowRight, ShieldAlert,
-  FolderMinus, CheckSquare, Sparkles, LogIn, ExternalLink
+  FolderMinus, CheckSquare, Sparkles, LogIn, ExternalLink, Mic, Settings
 } from 'lucide-react';
 import { ActiveApp, KeyboardSettings, ChatMessage } from '../types';
 
@@ -379,28 +379,28 @@ export default function PhoneSimulator({
           )}
 
           {/* Quick Launcher Keyboard Toolbar Overlay ( 다른 앱 실행 메뉴 ) */}
-          <div className="absolute top-1/2 right-1.5 transform -translate-y-1/2 flex flex-col gap-1.5 bg-slate-950/80 backdrop-blur-md border border-slate-800 p-1 rounded-full shadow-lg z-30">
-            <span className="text-[6px] text-zinc-500 font-bold text-center border-b border-zinc-800 pb-0.5 mb-0.5">LAUNCH</span>
+          <div className="absolute top-1/2 right-1.5 transform -translate-y-1/2 flex flex-col gap-2 bg-slate-950/90 backdrop-blur-md border border-slate-800 p-1.5 rounded-full shadow-2xl z-45 ring-2 ring-slate-800/50">
+            <span className="text-[8px] text-zinc-400 font-black tracking-wider text-center border-b border-zinc-800 pb-1 mb-0.5">LAUNCH</span>
             <button
               onClick={() => onLaunchExternalApp('인터넷')}
-              className="p-1 bg-zinc-900 text-teal-400 hover:bg-zinc-800 rounded-full transition active:scale-90"
+              className="p-2 bg-zinc-900 text-teal-400 hover:bg-zinc-800 hover:text-teal-300 rounded-full transition active:scale-95 shadow-md flex items-center justify-center"
               title="인터넷 앱 실행"
             >
-              <Globe className="w-3.5 h-3.5" />
+              <Globe className="w-4 h-4" />
             </button>
             <button
               onClick={() => onLaunchExternalApp('음성 검색')}
-              className="p-1 bg-zinc-900 text-amber-400 hover:bg-zinc-800 rounded-full transition active:scale-90"
+              className="p-2 bg-zinc-900 text-amber-400 hover:bg-zinc-800 hover:text-amber-300 rounded-full transition active:scale-95 shadow-md flex items-center justify-center"
               title="음성 검색 비서 실행"
             >
-              <Volume2 className="w-3.5 h-3.5" />
+              <Mic className="w-4 h-4" />
             </button>
             <button
               onClick={() => onLaunchExternalApp('설정')}
-              className="p-1 bg-zinc-900 text-sky-400 hover:bg-zinc-800 rounded-full transition active:scale-90"
+              className="p-2 bg-zinc-900 text-sky-400 hover:bg-zinc-800 hover:text-sky-300 rounded-full transition active:scale-95 shadow-md flex items-center justify-center"
               title="시스템 설정 실행"
             >
-              <FileText className="w-3.5 h-3.5" />
+              <Settings className="w-4 h-4" />
             </button>
           </div>
 

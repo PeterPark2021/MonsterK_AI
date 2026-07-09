@@ -101,6 +101,25 @@ export default function App() {
   // Lifted active tab state for High Density sync
   const [activeTab, setActiveTab] = useState<'wizard' | 'general' | 'theme' | 'phrases' | 'ml'>('wizard');
   const [toastNotification, setToastNotification] = useState<string | null>(null);
+  
+  // Mobile responsive layout and scaling controllers
+  const [mobileActiveView, setMobileActiveView] = useState<'simulator' | 'settings'>('simulator');
+  const [simulatorScale, setSimulatorScale] = useState(1);
+
+  useEffect(() => {
+    const updateScale = () => {
+      if (window.innerWidth < 420) {
+        // Safe padding calculation for phone viewports
+        const scaleFactor = Math.min(1, (window.innerWidth - 24) / 344);
+        setSimulatorScale(scaleFactor);
+      } else {
+        setSimulatorScale(1);
+      }
+    };
+    updateScale();
+    window.addEventListener('resize', updateScale);
+    return () => window.removeEventListener('resize', updateScale);
+  }, []);
 
   const triggerToast = (msg: string) => {
     setToastNotification(msg);
@@ -223,7 +242,7 @@ export default function App() {
   };
 
   return (
-    <div className="h-screen flex flex-col overflow-hidden bg-slate-950 text-slate-100 font-sans relative antialiased select-none">
+    <div className="min-h-screen lg:h-screen flex flex-col overflow-y-auto lg:overflow-hidden bg-slate-950 text-slate-100 font-sans relative antialiased select-none">
       
       {/* 1. Global Visual Background Glows */}
       <div className="absolute top-0 left-1/4 w-[350px] h-[350px] bg-sky-500/5 rounded-full filter blur-[100px] pointer-events-none" />
@@ -254,6 +273,22 @@ export default function App() {
           </button>
         </div>
       </header>
+
+      {/* Mobile-only Segmented View Switcher */}
+      <div className="flex lg:hidden bg-slate-900 border-b border-slate-800 p-1.5 shrink-0 sticky top-0 z-30">
+        <button
+          onClick={() => setMobileActiveView('simulator')}
+          className={`flex-1 py-2 text-xs font-bold rounded-xl flex items-center justify-center gap-2 transition-all ${mobileActiveView === 'simulator' ? 'bg-indigo-600 text-white shadow-md' : 'text-slate-400 hover:text-slate-200'}`}
+        >
+          <span>📱</span> 시뮬레이터 (Simulator)
+        </button>
+        <button
+          onClick={() => setMobileActiveView('settings')}
+          className={`flex-1 py-2 text-xs font-bold rounded-xl flex items-center justify-center gap-2 transition-all ${mobileActiveView === 'settings' ? 'bg-indigo-600 text-white shadow-md' : 'text-slate-400 hover:text-slate-200'}`}
+        >
+          <span>⚙️</span> 설정 & 학습 센터 (Settings)
+        </button>
+      </div>
 
       {/* 3. Main Workspace Row (High Density three-pane view) */}
       <div className="flex flex-col lg:flex-row flex-1 overflow-hidden">
@@ -364,35 +399,45 @@ export default function App() {
         </nav>
 
         {/* Center Device Emulator Space (With amazing radial glow) */}
-        <main className="flex-1 flex flex-col items-center justify-center p-4 lg:p-8 overflow-y-auto bg-[radial-gradient(circle_at_center,_#1e1b4b_0%,_transparent_70%)] relative">
+        <main className={`${mobileActiveView === 'settings' ? 'hidden lg:flex' : 'flex'} flex-1 flex flex-col items-center justify-center p-4 lg:p-8 overflow-y-auto bg-[radial-gradient(circle_at_center,_#1e1b4b_0%,_transparent_70%)] relative`}>
           
-          <div className="w-full flex justify-center py-4">
-            <PhoneSimulator
-              settings={settings}
-              textValue={textValue}
-              setTextValue={setTextValue}
-              activeApp={activeApp}
-              setActiveApp={setActiveApp}
-              focusedInputId={focusedInputId}
-              setFocusedInputId={setFocusedInputId}
-              cannedPhrases={cannedPhrases.map(p => p.text)}
-              addToClipboard={addToClipboard}
-              onLaunchExternalApp={handleLaunchExternalApp}
+          <div className="w-full flex justify-center py-4 overflow-hidden items-center min-h-[350px]">
+            <div
+              style={{
+                transform: `scale(${simulatorScale})`,
+                transformOrigin: 'center center',
+                width: `${344 * simulatorScale}px`,
+                height: `${672 * simulatorScale}px`,
+              }}
+              className="flex items-center justify-center shrink-0 transition-all duration-150"
             >
-              {/* Embedded Keyboard Custom component inside Phone */}
-              <VirtualKeyboard
+              <PhoneSimulator
                 settings={settings}
-                setSettings={setSettings}
                 textValue={textValue}
                 setTextValue={setTextValue}
+                activeApp={activeApp}
+                setActiveApp={setActiveApp}
                 focusedInputId={focusedInputId}
-                clipboard={clipboard.map(c => c.text)}
+                setFocusedInputId={setFocusedInputId}
+                cannedPhrases={cannedPhrases.map(p => p.text)}
                 addToClipboard={addToClipboard}
-                mlStats={mlStats}
-                updateMLStats={updateMLStats}
-                incrementCorrections={incrementCorrections}
-              />
-            </PhoneSimulator>
+                onLaunchExternalApp={handleLaunchExternalApp}
+              >
+                {/* Embedded Keyboard Custom component inside Phone */}
+                <VirtualKeyboard
+                  settings={settings}
+                  setSettings={setSettings}
+                  textValue={textValue}
+                  setTextValue={setTextValue}
+                  focusedInputId={focusedInputId}
+                  clipboard={clipboard.map(c => c.text)}
+                  addToClipboard={addToClipboard}
+                  mlStats={mlStats}
+                  updateMLStats={updateMLStats}
+                  incrementCorrections={incrementCorrections}
+                />
+              </PhoneSimulator>
+            </div>
           </div>
 
           {/* Automata and Core highlights */}
@@ -410,7 +455,7 @@ export default function App() {
         </main>
 
         {/* Right Properties Panel Column */}
-        <section className="w-full lg:w-[380px] border-t lg:border-t-0 lg:border-l border-slate-800 bg-slate-900 p-4 lg:p-6 flex flex-col shrink-0 overflow-y-auto">
+        <section className={`${mobileActiveView === 'simulator' ? 'hidden lg:flex' : 'flex'} w-full lg:w-[380px] border-t lg:border-t-0 lg:border-l border-slate-800 bg-slate-900 p-4 lg:p-6 flex flex-col shrink-0 overflow-y-auto`}>
           <CustomizerPanel
             settings={settings}
             setSettings={setSettings}

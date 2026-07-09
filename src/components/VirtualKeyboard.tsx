@@ -113,8 +113,18 @@ export default function VirtualKeyboard({
         setVoiceTranscript(final || interim);
       };
 
-      rec.onerror = () => {
+      rec.onerror = (event: any) => {
+        console.error("Speech recognition error:", event.error);
         setIsListening(false);
+        if (event.error === 'not-allowed') {
+          setVoiceTranscript('마이크 권한이 거부되었습니다. 브라우저 주소창 옆 설정에서 마이크를 허용해 주세요.');
+        } else if (event.error === 'no-speech') {
+          setVoiceTranscript('인식된 음성이 없습니다. 마이크를 켜고 다시 말씀해 주세요.');
+        } else if (event.error === 'network') {
+          setVoiceTranscript('네트워크 연결 오류가 발생했습니다.');
+        } else {
+          setVoiceTranscript(`인식 오류 (${event.error}). 다시 시도해 주세요.`);
+        }
       };
 
       rec.onend = () => {
