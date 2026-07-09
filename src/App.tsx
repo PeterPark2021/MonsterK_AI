@@ -441,11 +441,15 @@ export default function App() {
                   textValue={textValue}
                   setTextValue={setTextValue}
                   focusedInputId={focusedInputId}
+                  setFocusedInputId={setFocusedInputId}
                   clipboard={clipboard.map(c => c.text)}
                   addToClipboard={addToClipboard}
                   mlStats={mlStats}
                   updateMLStats={updateMLStats}
                   incrementCorrections={incrementCorrections}
+                  activeApp={activeApp}
+                  setActiveApp={setActiveApp}
+                  cannedPhrases={cannedPhrases.map(p => p.text)}
                 />
               </PhoneSimulator>
             </div>

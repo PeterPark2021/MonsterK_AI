@@ -3,7 +3,7 @@
  */
 
 export type KoreanLayout = 'qwerty' | 'cheonjiin' | 'naratgul' | 'geomjigeul';
-export type ActiveApp = 'messages' | 'notes' | 'browser' | 'login';
+export type ActiveApp = 'messages' | 'notes' | 'browser' | 'login' | 'kakaotalk';
 export type KeyShape = 'round' | 'pill' | 'square' | 'rectangular' | 'borderless';
 
 export interface CustomTheme {

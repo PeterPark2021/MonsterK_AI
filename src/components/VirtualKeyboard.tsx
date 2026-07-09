@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Globe, Smile, Mic, Delete, RefreshCw, Clipboard, Check, Volume2, Search, ArrowRight, ShieldCheck } from 'lucide-react';
-import { KeyboardSettings, CustomTheme, MLModelStats, KoreanLayout } from '../types';
+import { KeyboardSettings, CustomTheme, MLModelStats, KoreanLayout, ActiveApp } from '../types';
 import { assembleJamos, composeCheonjiinVowels, resolveCheonjiinBuffer, composeGeomjigeulVowels, isVowel, STROKE_ADDITIONS, DOUBLE_CONSONANTS } from '../utils/hangul';
 import { getAutocompleteSuggestions, predictNextWords, getSentenceCorrection } from '../utils/keyboardEngine';
 
@@ -11,11 +11,15 @@ interface VirtualKeyboardProps {
   textValue: string;
   setTextValue: (val: string) => void;
   focusedInputId: string | null;
+  setFocusedInputId?: (id: string | null) => void;
   clipboard: string[];
   addToClipboard: (text: string) => void;
   mlStats: MLModelStats;
   updateMLStats: (typedWord: string, prevWord: string) => void;
   incrementCorrections: () => void;
+  activeApp?: ActiveApp;
+  setActiveApp?: (app: ActiveApp) => void;
+  cannedPhrases?: string[];
 }
 
 export default function VirtualKeyboard({
@@ -24,15 +28,20 @@ export default function VirtualKeyboard({
   textValue,
   setTextValue,
   focusedInputId,
+  setFocusedInputId,
   clipboard,
   addToClipboard,
   mlStats,
   updateMLStats,
-  incrementCorrections
+  incrementCorrections,
+  activeApp,
+  setActiveApp,
+  cannedPhrases = []
 }: VirtualKeyboardProps) {
   const [isShifted, setIsShifted] = useState(false);
   const [currentLanguage, setCurrentLanguage] = useState<'ko' | 'en'>('ko');
-  const [activeTab, setActiveTab] = useState<'keyboard' | 'emoji' | 'voice'>('keyboard');
+  const [activeTab, setActiveTab] = useState<'keyboard' | 'emoji' | 'voice' | 'app_launch' | 'clipboard'>('keyboard');
+  const [clipboardSubTab, setClipboardSubTab] = useState<'clipboard' | 'phrases'>('clipboard');
   
   // Emoji tab categorization
   const [emojiCategory, setEmojiCategory] = useState<'faces' | 'animals' | 'objects' | 'symbols'>('faces');
@@ -115,6 +124,68 @@ export default function VirtualKeyboard({
   useEffect(() => {
     commitComposition();
   }, [currentLanguage, settings.activeKoreanLayout]);
+
+  // Analyze patterns to recommend relevant apps
+  const getRecommendedApp = (): { app: 'browser' | 'login' | 'notes' | 'kakaotalk' | 'messages'; reason: string } => {
+    const text = textValue.toLowerCase();
+    const words = Object.keys(mlStats?.wordFrequencies || {});
+    
+    // Keyword mappings
+    const browserKeywords = ['검색', '구글', '날씨', '네이버', '인터넷', '웹', '사이트', 'search', 'google', 'www', 'http', 'weather'];
+    const loginKeywords = ['로그인', '비번', '패스워드', '아이디', '보안', '인증', '계정', 'login', 'password', 'secure', 'auth', 'id'];
+    const notesKeywords = ['메모', '일기', '기록', '저장', '글', 'note', 'memo', 'diary', 'write', 'todo'];
+    const kakaoKeywords = ['카톡', '카카오', '친구', '대화', '톡', '방', '단톡', 'kakaotalk', 'kakao', 'talk', 'chat', 'friend'];
+    const msgKeywords = ['메시지', '문자', '전송', '민지', '안부', 'message', 'sms', 'text', 'send'];
+
+    let scores = {
+      browser: 0,
+      login: 0,
+      notes: 0,
+      kakaotalk: 0,
+      messages: 0
+    };
+
+    // 1. Analyze current typing buffer
+    const textWords = text.split(/\s+/);
+    textWords.forEach(w => {
+      if (!w) return;
+      if (browserKeywords.some(k => w.includes(k))) scores.browser += 4;
+      if (loginKeywords.some(k => w.includes(k))) scores.login += 4;
+      if (notesKeywords.some(k => w.includes(k))) scores.notes += 4;
+      if (kakaoKeywords.some(k => w.includes(k))) scores.kakaotalk += 4;
+      if (msgKeywords.some(k => w.includes(k))) scores.messages += 4;
+    });
+
+    // 2. Analyze machine learning cumulative frequencies
+    words.forEach(w => {
+      const freq = mlStats.wordFrequencies[w] || 0;
+      if (browserKeywords.some(k => w.includes(k))) scores.browser += freq;
+      if (loginKeywords.some(k => w.includes(k))) scores.login += freq;
+      if (notesKeywords.some(k => w.includes(k))) scores.notes += freq;
+      if (kakaoKeywords.some(k => w.includes(k))) scores.kakaotalk += freq;
+      if (msgKeywords.some(k => w.includes(k))) scores.messages += freq;
+    });
+
+    // Identify top app
+    let maxApp: 'browser' | 'login' | 'notes' | 'kakaotalk' | 'messages' = 'kakaotalk';
+    let maxScore = -1;
+
+    (Object.keys(scores) as Array<keyof typeof scores>).forEach(app => {
+      if (scores[app] > maxScore) {
+        maxScore = scores[app];
+        maxApp = app;
+      }
+    });
+
+    const matchingKeyword = browserKeywords.concat(loginKeywords, notesKeywords, kakaoKeywords, msgKeywords).find(k => text.includes(k) || words.includes(k)) || '';
+
+    return {
+      app: maxApp,
+      reason: maxScore > 0 
+        ? `최근 입력하신 패턴 분석 결과 '${matchingKeyword}'(과)와 깊은 연관이 있습니다.`
+        : `디폴트 대화용 메신저 앱을 실행합니다.`
+    };
+  };
 
   // Auto-Speech recognition setup
   useEffect(() => {
@@ -873,6 +944,15 @@ export default function VirtualKeyboard({
           </div>
         ) : (
           <div className="flex items-center justify-around w-full divide-x divide-opacity-30 divide-gray-500 overflow-x-auto">
+            {/* Direct access to full clipboard history */}
+            <button
+              onClick={() => { triggerVibration(); setActiveTab(activeTab === 'clipboard' ? 'keyboard' : 'clipboard'); }}
+              className="flex items-center justify-center p-1.5 text-sky-500 hover:text-sky-400 hover:bg-sky-500/10 rounded-full transition shrink-0 mr-1"
+              title="클립보드 및 상용구"
+            >
+              <Clipboard className="w-3.5 h-3.5" />
+            </button>
+
             {/* Clipboard Bar Overlay */}
             {clipboard.length > 0 && (
               <button
@@ -1256,7 +1336,7 @@ export default function VirtualKeyboard({
               <div className="geomjigeul-layout grid grid-cols-7 gap-1 flex-1 select-none touch-none">
                 {/* Row 1 of Geomjigeul */}
                 <button
-                  onClick={() => { triggerVibration(); alert("앱실행 기능입니다."); }}
+                  onClick={() => { triggerVibration(); setActiveTab('app_launch'); }}
                   className={`h-[34px] flex items-center justify-center font-bold text-[10px] shadow-sm active:scale-95 ${getKeyShapeClass()}`}
                   style={{ backgroundColor: theme.keyBgColor, opacity: 0.8 }}
                 >
@@ -1311,7 +1391,7 @@ export default function VirtualKeyboard({
 
                 {/* Row 2 of Geomjigeul */}
                 <button
-                  onClick={() => { triggerVibration(); setActiveTab('emoji'); }}
+                  onClick={() => { triggerVibration(); setActiveTab(activeTab === 'clipboard' ? 'keyboard' : 'clipboard'); }}
                   className={`h-[34px] flex items-center justify-center font-bold text-[11px] shadow-sm active:scale-95 ${getKeyShapeClass()}`}
                   style={{ backgroundColor: theme.keyBgColor, opacity: 0.8 }}
                 >
@@ -1656,6 +1736,198 @@ export default function VirtualKeyboard({
               >
                 텍스트 삽입
               </button>
+            </div>
+          </div>
+        )}
+
+        {/* TAB 4: App Launch screen */}
+        {activeTab === 'app_launch' && (
+          <div className="flex flex-col h-full justify-between p-2 select-none">
+            <div className="flex items-center justify-between border-b border-gray-700/30 pb-1.5 mb-1.5 shrink-0">
+              <span className="text-[10px] font-bold text-sky-400 flex items-center gap-1">
+                🚀 단축 앱 실행 (Quick App Launcher)
+              </span>
+              <button
+                onClick={() => setActiveTab('keyboard')}
+                className="text-[9px] px-2 py-0.5 rounded bg-gray-500/20 text-gray-400 hover:text-white font-bold"
+              >
+                닫기
+              </button>
+            </div>
+
+            {/* Pattern analysis recommendation */}
+            {(() => {
+              const rec = getRecommendedApp();
+              const appInfo = {
+                kakaotalk: { name: '카카오톡', color: '#FFE000', textColor: '#3C1E1E', icon: '💬', focusId: 'kakao-input' },
+                messages: { name: '메시지', color: '#0ea5e9', textColor: '#FFFFFF', icon: '✉️', focusId: 'msg-input' },
+                notes: { name: '메모장', color: '#6366f1', textColor: '#FFFFFF', icon: '📝', focusId: 'notes-input' },
+                browser: { name: '인터넷 검색', color: '#10b981', textColor: '#FFFFFF', icon: '🌐', focusId: 'browser-input' },
+                login: { name: '보안 로그인', color: '#f43f5e', textColor: '#FFFFFF', icon: '🔒', focusId: 'login-password' },
+              }[rec.app];
+              return (
+                <div 
+                  className="rounded px-2.5 py-1.5 flex items-center justify-between mb-1.5 text-[10px] shrink-0 border border-emerald-500/20 shadow-sm"
+                  style={{ backgroundColor: theme.isDark ? '#1C1C1F' : '#E9ECEF' }}
+                >
+                  <div className="flex flex-col text-left max-w-[190px]">
+                    <span className="text-[8px] text-emerald-500 font-extrabold uppercase tracking-wider">🧠 키보드 패턴 분석 맞춤 추천</span>
+                    <span className="text-white font-bold flex items-center gap-1 mt-0.5">
+                      {appInfo.icon} <strong className="font-extrabold" style={{ color: theme.isDark ? '#F1F5F9' : '#1E293B' }}>{appInfo.name}</strong> 추천
+                    </span>
+                    <span className="text-[8px] text-zinc-400 truncate block mt-0.5">{rec.reason}</span>
+                  </div>
+                  <button
+                    onClick={() => {
+                      triggerVibration();
+                      if (setActiveApp) {
+                        setActiveApp(rec.app);
+                        if (setFocusedInputId) {
+                          setFocusedInputId(appInfo.focusId);
+                        }
+                      }
+                      setActiveTab('keyboard');
+                    }}
+                    className="px-2 py-1 text-[9px] font-bold text-white rounded bg-emerald-600 hover:bg-emerald-500 transition active:scale-95 shadow-md shrink-0"
+                  >
+                    바로 실행
+                  </button>
+                </div>
+              );
+            })()}
+
+            {/* Grid of all apps */}
+            <div className="grid grid-cols-5 gap-1.5 flex-1 content-center py-1">
+              {[
+                { id: 'kakaotalk', name: '카카오톡', icon: '💬', color: '#FFE000', textColor: '#3C1E1E', focusId: 'kakao-input' },
+                { id: 'messages', name: '메시지', icon: '✉️', color: '#0ea5e9', textColor: '#FFFFFF', focusId: 'msg-input' },
+                { id: 'notes', name: '메모장', icon: '📝', color: '#6366f1', textColor: '#FFFFFF', focusId: 'notes-input' },
+                { id: 'browser', name: '인터넷', icon: '🌐', color: '#10b981', textColor: '#FFFFFF', focusId: 'browser-input' },
+                { id: 'login', name: '보안로그인', icon: '🔒', color: '#f43f5e', textColor: '#FFFFFF', focusId: 'login-password' },
+              ].map((app) => (
+                <button
+                  key={app.id}
+                  onClick={() => {
+                    triggerVibration();
+                    if (setActiveApp) {
+                      setActiveApp(app.id as ActiveApp);
+                      if (setFocusedInputId) {
+                        setFocusedInputId(app.focusId);
+                      }
+                    }
+                    setActiveTab('keyboard');
+                  }}
+                  className="flex flex-col items-center justify-center p-1.5 rounded-xl hover:scale-105 transition duration-150 relative active:scale-95 shadow-sm"
+                  style={{ 
+                    backgroundColor: theme.isDark ? '#232529' : '#FFFFFF',
+                    border: `1px solid ${theme.isDark ? '#32343a' : '#DEE2E6'}`
+                  }}
+                >
+                  <div 
+                    className="w-8 h-8 rounded-full flex items-center justify-center text-sm shadow-sm"
+                    style={{ backgroundColor: app.color, color: app.textColor }}
+                  >
+                    {app.icon}
+                  </div>
+                  <span className="text-[8px] font-black mt-1.5 tracking-tighter" style={{ color: theme.isDark ? '#E2E8F0' : '#1E293B' }}>{app.name}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* TAB 5: Clipboard and Quick Phrases Screen */}
+        {activeTab === 'clipboard' && (
+          <div className="flex flex-col h-full justify-between p-2 select-none">
+            <div className="flex items-center justify-between border-b border-gray-700/30 pb-1.5 mb-1.5 shrink-0">
+              <div className="flex items-center gap-2">
+                <span className="text-[10px] font-bold text-sky-400 flex items-center gap-1">
+                  📋 {clipboardSubTab === 'clipboard' ? '클립보드 내역' : '단축 상용구'}
+                </span>
+                <span className="text-[9px] text-zinc-500">|</span>
+                <button
+                  onClick={() => {
+                    triggerVibration();
+                    setClipboardSubTab(clipboardSubTab === 'clipboard' ? 'phrases' : 'clipboard');
+                  }}
+                  className={`text-[9px] px-2 py-0.5 rounded font-extrabold transition-all active:scale-95 ${
+                    clipboardSubTab === 'phrases' 
+                      ? 'bg-sky-500 text-white shadow-sm' 
+                      : 'bg-zinc-800 text-zinc-300 hover:bg-zinc-700'
+                  }`}
+                >
+                  {clipboardSubTab === 'clipboard' ? '💬 상용구 보기' : '📋 클립보드 보기'}
+                </button>
+              </div>
+              <button
+                onClick={() => setActiveTab('keyboard')}
+                className="text-[9px] px-2 py-0.5 rounded bg-gray-500/20 text-gray-400 hover:text-white font-bold"
+              >
+                자판으로
+              </button>
+            </div>
+
+            {/* Scrollable list content */}
+            <div className="flex-1 overflow-y-auto space-y-1.5 pr-0.5 max-h-[140px]">
+              {clipboardSubTab === 'clipboard' ? (
+                // Users copied items in reverse chronological order
+                <div className="flex flex-col gap-1.5">
+                  <div className="text-[8px] font-black text-zinc-500 uppercase tracking-wider mb-0.5">
+                    최근 복사한 내역 (시간 역순 배치)
+                  </div>
+                  {clipboard && clipboard.length > 0 ? (
+                    clipboard.map((text, idx) => (
+                      <button
+                        key={idx}
+                        onClick={() => {
+                          triggerVibration();
+                          handleSuggestionClick(text);
+                          setActiveTab('keyboard');
+                        }}
+                        className="w-full text-left p-2 rounded-xl bg-zinc-800/80 hover:bg-zinc-700/80 text-xs font-semibold text-zinc-200 border border-zinc-750/50 transition truncate active:scale-[0.99] flex items-center gap-2 shadow-sm"
+                        style={{ backgroundColor: theme.isDark ? '#232529' : '#FFFFFF', borderColor: theme.isDark ? '#32343a' : '#DEE2E6' }}
+                      >
+                        <span className="text-[8px] text-sky-400 font-mono shrink-0 bg-sky-500/10 px-1.5 py-0.5 rounded">#{idx + 1}</span>
+                        <span className="truncate flex-1" style={{ color: theme.isDark ? '#E2E8F0' : '#1E293B' }}>{text}</span>
+                        <span className="text-[8px] text-zinc-500 shrink-0 font-medium">입력</span>
+                      </button>
+                    ))
+                  ) : (
+                    <div className="text-center py-4 text-zinc-500 text-[10px] italic">
+                      복사된 클립보드 내역이 없습니다. 가상 폰에서 메모/대화를 복사해 보세요!
+                    </div>
+                  )}
+                </div>
+              ) : (
+                // Predefined canned phrases
+                <div className="flex flex-col gap-1.5">
+                  <div className="text-[8px] font-black text-zinc-500 uppercase tracking-wider mb-0.5">
+                    자주 쓰는 상용구 입력
+                  </div>
+                  {cannedPhrases && cannedPhrases.length > 0 ? (
+                    cannedPhrases.map((phrase, idx) => (
+                      <button
+                        key={idx}
+                        onClick={() => {
+                          triggerVibration();
+                          handleSuggestionClick(phrase);
+                          setActiveTab('keyboard');
+                        }}
+                        className="w-full text-left p-2 rounded-xl bg-zinc-800/80 hover:bg-zinc-750 text-xs font-semibold text-zinc-100 border border-zinc-750/50 transition truncate active:scale-[0.99] flex items-center gap-2 shadow-sm"
+                        style={{ backgroundColor: theme.isDark ? '#232529' : '#FFFFFF', borderColor: theme.isDark ? '#32343a' : '#DEE2E6' }}
+                      >
+                        <span className="text-[8px] text-indigo-400 font-mono shrink-0 bg-indigo-500/10 px-1.5 py-0.5 rounded">상용구</span>
+                        <span className="truncate flex-1" style={{ color: theme.isDark ? '#E2E8F0' : '#1E293B' }}>{phrase}</span>
+                        <span className="text-[8px] text-zinc-500 shrink-0 font-medium">입력</span>
+                      </button>
+                    ))
+                  ) : (
+                    <div className="text-center py-4 text-zinc-500 text-[10px] italic">
+                      등록된 단축 상용구가 없습니다.
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
           </div>
         )}

@@ -47,6 +47,12 @@ export default function PhoneSimulator({
     { id: '3', sender: 'minji', text: '오 좋은데? 맞춤법 맞나 보려고 키보드 테스트해보고 있어? ㅋㅋㅋ', timestamp: '오후 6:15' }
   ]);
 
+  // KakaoTalk Messages Chat log
+  const [kakaoMessages, setKakaoMessages] = useState<ChatMessage[]>([
+    { id: 'k1', sender: 'minji', text: '톡 가능해? 새로 나온 검지글 키보드 자판 써봤어?? 💛', timestamp: '오전 11:20' },
+    { id: 'k2', sender: 'user', text: '오 카톡으로 보니까 진짜 노란색 테마라 더 이쁘다! ㅋㅋㅋ', timestamp: '오전 11:22' }
+  ]);
+
   // Browser suggestions
   const browserQueries = [
     '맞춤법 검사기 한국어',
@@ -104,6 +110,38 @@ export default function PhoneSimulator({
     }, 1500);
   };
 
+  // Handle Send in KakaoTalk App
+  const handleSendKakaoMessage = () => {
+    if (!textValue.trim()) return;
+    
+    const newMsg: ChatMessage = {
+      id: Date.now().toString(),
+      sender: 'user',
+      text: textValue,
+      timestamp: new Date().toLocaleTimeString('ko-KR', { hour: 'numeric', minute: '2-digit' })
+    };
+
+    setKakaoMessages([...kakaoMessages, newMsg]);
+    setTextValue('');
+    
+    setTimeout(() => {
+      const replies = [
+        '와 진짜 편하다! 카톡 치는데 오타가 훨씬 줄었어 😆',
+        '검지글 자판에서 슬라이드로 쓰는게 적응되니까 엄청 빠르네!',
+        '이거 친구들한테도 써보라고 추천해야겠어!',
+        '너가 만든 키보드 진짜 최고당 ㅎㅎ형'
+      ];
+      const randomReply = replies[Math.floor(Math.random() * replies.length)];
+      
+      setKakaoMessages(prev => [...prev, {
+        id: (Date.now() + 1).toString(),
+        sender: 'minji',
+        text: randomReply,
+        timestamp: new Date().toLocaleTimeString('ko-KR', { hour: 'numeric', minute: '2-digit' })
+      }]);
+    }, 1200);
+  };
+
   // Click canned phrase inside phone suggestions
   const handleSelectPhrase = (phrase: string) => {
     setTextValue(textValue + phrase);
@@ -143,6 +181,7 @@ export default function PhoneSimulator({
             <Menu className="w-4 h-4 text-zinc-500 hover:text-white transition cursor-pointer" />
             <span className="text-xs font-bold text-zinc-200 uppercase tracking-wider">
               {activeApp === 'messages' && '💬 Messages'}
+              {activeApp === 'kakaotalk' && '💛 KakaoTalk'}
               {activeApp === 'notes' && '📝 Notepad'}
               {activeApp === 'browser' && '🌐 Google'}
               {activeApp === 'login' && '🔒 Authentication'}
@@ -151,6 +190,13 @@ export default function PhoneSimulator({
           
           {/* Quick App Swapper Icons */}
           <div className="flex items-center gap-1.5">
+            <button 
+              onClick={() => { setActiveApp('kakaotalk'); setFocusedInputId('kakao-input'); }}
+              className={`p-1 flex items-center justify-center rounded-lg transition text-[10px] h-7 w-7 font-extrabold ${activeApp === 'kakaotalk' ? 'bg-[#FFE000] text-zinc-900' : 'hover:bg-zinc-800 text-yellow-500'}`}
+              title="카카오톡 앱"
+            >
+              톡
+            </button>
             <button 
               onClick={() => { setActiveApp('messages'); setFocusedInputId('msg-input'); }}
               className={`p-1.5 rounded-lg transition ${activeApp === 'messages' ? 'bg-sky-500 text-white' : 'hover:bg-zinc-800 text-zinc-400'}`}
@@ -232,6 +278,61 @@ export default function PhoneSimulator({
                   onClick={handleSendMessage}
                   disabled={!textValue.trim()}
                   className="p-1.5 bg-sky-500 disabled:opacity-40 text-white rounded-full transition active:scale-95 shrink-0"
+                >
+                  <Send className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* APP E: KAKAOTALK */}
+          {activeApp === 'kakaotalk' && (
+            <div className="flex-1 flex flex-col bg-[#BACEE0] p-3 overflow-y-auto pb-4 gap-2.5 relative select-none">
+              {/* Yellow Kakao Chat Room Header info */}
+              <div className="text-[10px] text-center text-slate-700/85 font-bold bg-white/40 backdrop-blur-sm rounded-full py-0.5 px-3 mx-auto w-fit mb-1">
+                💬 카카오톡: 민지 💛
+              </div>
+
+              {/* Chat room scroll */}
+              <div className="flex flex-col gap-2.5 flex-1 overflow-y-auto pb-12 pr-1 select-text">
+                {kakaoMessages.map((msg) => (
+                  <div 
+                    key={msg.id}
+                    className={`flex flex-col max-w-[80%] ${msg.sender === 'user' ? 'self-end items-end' : 'self-start items-start'}`}
+                  >
+                    <span className="text-[9px] text-slate-800 mb-0.5 ml-1 font-bold">{msg.sender === 'user' ? '나' : '민지 💛'}</span>
+                    <div className="flex items-end gap-1">
+                      {msg.sender === 'user' && <span className="text-[7px] text-slate-700 shrink-0">{msg.timestamp}</span>}
+                      <div 
+                        className={`px-3 py-1.5 rounded-2xl text-[11px] leading-snug break-all font-medium ${
+                          msg.sender === 'user' 
+                            ? 'bg-[#FEE500] text-zinc-900 rounded-tr-none shadow-sm' 
+                            : 'bg-white text-zinc-900 rounded-tl-none shadow-sm'
+                        }`}
+                      >
+                        {msg.text}
+                      </div>
+                      {msg.sender !== 'user' && <span className="text-[7px] text-slate-700 shrink-0">{msg.timestamp}</span>}
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              {/* Message Typing Input bar bottom */}
+              <div className="absolute bottom-0 left-0 right-0 bg-white border-t border-slate-200 px-2.5 py-1.5 flex items-center gap-1.5 z-10 shadow-md">
+                <input
+                  id="kakao-input"
+                  type="text"
+                  placeholder="카카오톡 메시지 입력..."
+                  value={textValue}
+                  onFocus={() => setFocusedInputId('kakao-input')}
+                  onChange={(e) => setTextValue(e.target.value)}
+                  className="flex-1 text-[11px] px-2.5 py-1.5 bg-slate-50 rounded-full border border-slate-200 outline-none text-slate-950 font-semibold"
+                />
+                <button
+                  onClick={handleSendKakaoMessage}
+                  disabled={!textValue.trim()}
+                  className="p-1.5 bg-[#FEE500] hover:bg-[#FADA00] disabled:opacity-40 text-zinc-950 rounded-full transition active:scale-95 shrink-0 shadow-sm flex items-center justify-center"
                 >
                   <Send className="w-3.5 h-3.5" />
                 </button>
